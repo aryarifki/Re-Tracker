@@ -101,7 +101,7 @@ export default function MainChart() {
 
   return (
     <div className="h-full flex flex-col border border-neutral-800 rounded-lg bg-neutral-900">
-      <div="px-4 py-2 border-b border-neutral-800 flex items-baseline gap-3">
+      <div className="px-4 py-2 border-b border-neutral-800 flex items-baseline gap-3">
         <h2 className="text-lg font-bold">{activeTicker}</h2>
         {lastBar?.close != null && (
           <>
