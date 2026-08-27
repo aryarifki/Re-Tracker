@@ -4,10 +4,10 @@ from __future__ import annotations
 from datetime import date as date_type
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
-class PriceBar(Base):
+class PriceBar(BaseModel):
     """One OHLCV row — shape matches TradingView Lightweight Charts."""
     model_config = ConfigDict(from_attributes=True)
 
