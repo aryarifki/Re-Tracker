@@ -69,7 +69,6 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
         "close": float(flow_win["close"].iloc[-1]) if "close" in flow_win else None,
         "top_buyers": top_buy.to_dict("records") if not top_buy.empty else [],
         "top_sellers": top_sell.to_dict("records") if not top_sell.empty else [],
-tambahan }
 
 @router.get("/stocks/{ticker}/smart-flow")
 def smart_flow(ticker: str, window: int = 30):
