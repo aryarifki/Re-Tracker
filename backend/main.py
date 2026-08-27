@@ -12,9 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import stocks, broker  # broker: Langkah 2
-from app.routers import bandarmology
-app.include_router(bandarmology.router)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,6 +40,8 @@ app.add_middleware(
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
 
+from app.routers import bandarmology
+app.include_router(bandarmology.router)
 
 @app.get("/", tags=["Health"])
 def root():
