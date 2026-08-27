@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import stocks  # , broker  # <- uncomment in Langkah berikutnya
+from routers import stocks, broker  # broker: Langkah 2
 
 
 @asynccontextmanager
@@ -39,7 +39,7 @@ app.add_middleware(
 
 # ── Routers ──
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
-# app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
+app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/", tags=["Health"])
