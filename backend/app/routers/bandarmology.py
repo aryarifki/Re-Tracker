@@ -259,6 +259,33 @@ def raw_tables(ticker: str, window: int = 30):
         return w.to_dict("records")
 
     return {"flow": trim(flow), "activity": trim(act)}
+@router.get("/stocks/{ticker}/smart-flow")
+def smart_flow(ticker: str, lookback_days: int = 30):
+    df = analysis.smart_money_daily_flow(ticker.upper(), lookback_days=lookback_days)
+    if df is None or df.empty:
+        return {"data": []}
+    df = df.copy()
+    df["date"] = df["date"].astype(str)
+    return {"data": df.to_dict("records")}
+
+
+@router.get("/stocks/{ticker}/broker-profiles")
+def broker_profiles(ticker: str, lookback_days: int = 30):
+    df = analysis.broker_profile_flow_table(ticker.upper(), lookback_days=lookback_days)
+    return {"data": df.to_dict("records") if df is not None and not df.empty else []}
+
+
+@router.get("/stocks/{ticker}/price-performance")
+def price_performance(ticker: str):
+    df = analysis.price_performance_table(ticker.upper())
+    return {"data": df.to_dict("records") if df is not None and not df.empty else []}
+
+
+@router.get("/stocks/{ticker}/broker-distribution")
+def broker_distribution(ticker: str, trade_date: str | None = None, top_n: int = 12):
+    ts = pd.Timestamp(trade_date) if trade_date else None
+    df = analysis.broker_distribution_table(ticker.upper(), trade_date=ts, top_n=top_n)
+    return {"data": df.to_dict("records") if df is not None and not df.empty else []}
 
 
 # ══════════════════════════════════════════════════════════
