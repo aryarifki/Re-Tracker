@@ -6,15 +6,14 @@ from datetime import date as dt_date
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.dependencies import DbSession
 from app.models import BrokerActivity, BrokerFlow
 from app.schemas import (
     BrokerActivityResponse,
+    BrokerActivityOut,
     BrokerFlowHistoryResponse,
     BrokerFlowOut,
-    BrokerActivityOut,
 )
 
 router = APIRouter(prefix="/broker-flow", tags=["Broker Flow"])
@@ -28,7 +27,7 @@ router = APIRouter(prefix="/broker-flow", tags=["Broker Flow"])
 def get_broker_flow_history(
     ticker: str,
     limit: int = Query(365, ge=1, le=2000),
-    db: Session = get_db,
+    db: DbSession,
 ) -> BrokerFlowHistoryResponse:
     stmt = (
         select(BrokerFlow)
@@ -57,11 +56,10 @@ def get_broker_activity(
     ticker: str,
     trade_date: dt_date | None = Query(None, description="YYYY-MM-DD (default: latest available)"),
     limit: int = Query(50, ge=1, le=200),
-    db: Session = get_db,
+    db: DbSession,
 ) -> BrokerActivityResponse:
     ticker_clean = ticker.upper().strip()
 
-    # Jika trade_date tidak diberikan, ambil tanggal terakhir yang tersedia
     if trade_date is None:
         latest_stmt = (
             select(BrokerActivity.date)
