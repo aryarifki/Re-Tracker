@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import stocks, broker  # broker: Langkah 2
+from app.routers import bandarmology
+app.include_router(bandarmology.router)
 
 
 @asynccontextmanager
