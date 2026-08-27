@@ -1,2 +1,2 @@
-"""Import paket idx_bandarmology (sudah dimigrasi ke dalam repo)."""
-from idx_bandarmology import analysis, broker_api, storage, universe
+"""Bridge ke paket idx_bandarmology (dimigrasi ke backend/idx_bandarmology)."""
+from idx_bandarmology import analysis, storage, universe, pipeline  # noqa: F401
