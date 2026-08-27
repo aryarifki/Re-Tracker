@@ -1,12 +1,11 @@
-/**
- * API client — semua pemanggilan FastAPI lewat sini.
- * Mengembalikan SWR fetcher-compatible functions.
- */
 import type {
-  BrokerFlowHistoryResponse, BrokerFlowRow, BrokerFlowSummary, PriceHistoryResponse,
+  BrokerFlowHistoryResponse,
+  BrokerFlowRow,
+  BrokerFlowSummary,
+  PriceHistoryResponse,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -14,10 +13,10 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
-  const res = await fetch(`APIURL{API_URL}APIU​RL{path}`, {
+async function request(path: string) {
+  const url = API_URL + path; // ← tanpa template literal, aman dari bug copy-paste
+  const res = await fetch(url, {
     headers: { Accept: "application/json" },
-    // cache: "no-store" — data saham selalu fresh
     cache: "no-store",
   });
 
@@ -25,36 +24,29 @@ async function request<T>(path: string): Promise<T> {
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = body.detail ?? detail;
-    } catch {
+      detail = body.detail || detail;
+    } catch (err) {
       /* ignore */
     }
     throw new ApiError(res.status, detail);
   }
-  return res.json() as Promise<T>;
+  return res.json();
 }
 
-// ── Stocks ──
-export const fetchStockHistory = (
-  ticker: string,
-  limit = 250,
-): Promise<PriceHistoryResponse> =>
-  request(`/stocks/ticker/history?limit={ticker}/history?limit=ticker/history?limit={limit}`);
+export function fetchStockHistory(ticker: string, limit: number = 250) {
+  return request("/stocks/" + ticker + "/history?limit=" + limit) as Promise<PriceHistoryResponse>;
+}
 
-// ── Broker Flow ──
-export const fetchBrokerLatest = (ticker: string): Promise<BrokerFlowRow> =>
-  request(`/broker-flow/${ticker}/latest`);
+export function fetchBrokerLatest(ticker: string) {
+  return request("/broker-flow/" + ticker + "/latest") as Promise<BrokerFlowRow>;
+}
 
-export const fetchBrokerHistory = (
-  ticker: string,
-  limit = 60,
-): Promise<BrokerFlowHistoryResponse> =>
-  request(`/broker-flow/ticker/history?limit={ticker}/history?limit=ticker/history?limit={limit}`);
+export function fetchBrokerHistory(ticker: string, limit: number = 60) {
+  return request("/broker-flow/" + ticker + "/history?limit=" + limit) as Promise<BrokerFlowHistoryResponse>;
+}
 
-export const fetchBrokerSummary = (
-  ticker: string,
-  days = 30,
-): Promise<BrokerFlowSummary> =>
-  request(`/broker-flow/ticker/summary?days={ticker}/summary?days=ticker/summary?days={days}`);
+export function fetchBrokerSummary(ticker: string, days: number = 30) {
+  return request("/broker-flow/" + ticker + "/summary?days=" + days) as Promise<BrokerFlowSummary>;
+}
 
 export { ApiError };
