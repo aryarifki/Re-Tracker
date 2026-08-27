@@ -8,6 +8,17 @@ from fastapi import APIRouter, HTTPException
 from ..idx_bridge import analysis, storage, universe, pipeline
 
 router = APIRouter(prefix="/api/bandar", tags=["bandarmology"])
+import math
+
+def _clean(obj):
+    """Ganti NaN/Inf menjadi None agar valid JSON."""
+    if isinstance(obj, dict):
+        return {k: _clean(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean(v) for v in obj]
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    return obj
 
 
 # ══════════════════════════════════════════════════════════
@@ -123,7 +134,7 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
         if not smart.empty:
             smart_cum = float(smart["net_value"].sum())
 
-    return {
+    return _clean({
         "ticker": ticker,
         "analysis_date": str(ts.date()),
         "window_start": str(win_start.date()),
@@ -145,7 +156,8 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
         "smart_cumulative": smart_cum,
         "top_buyers": top_buy.to_dict("records") if not top_buy.empty else [],
         "top_sellers": top_sell.to_dict("records") if not top_sell.empty else [],
-    }
+    })
+
 
 
 # ══════════════════════════════════════════════════════════
