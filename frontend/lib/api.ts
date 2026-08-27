@@ -2,6 +2,9 @@
  * API client — semua pemanggilan FastAPI lewat sini.
  * Mengembalikan SWR fetcher-compatible functions.
  */
+import type {
+  BrokerFlowHistoryResponse, BrokerFlowRow, BrokerFlowSummary, PriceHistoryResponse,
+} from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
