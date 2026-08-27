@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import desc, select
-from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.dependencies import DbSession
 from app.models import Price
 from app.schemas import PriceHistoryResponse, PriceOut
 
@@ -22,8 +20,10 @@ router = APIRouter(prefix="/stocks", tags=["Stocks"])
 def get_stock_history(
     ticker: str,
     limit: int = Query(500, ge=1, le=5000, description="Jumlah baris maksimum"),
-    db: Session = get_db,
+    db: DbSession,
 ) -> PriceHistoryResponse:
+    from sqlalchemy import desc, select
+
     stmt = (
         select(Price)
         .where(Price.ticker == ticker.upper().strip())
