@@ -2,7 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import useSWR from "swr";
-import { createChart, ColorType } from "lightweight-charts";
+import {
+  createChart,
+  ColorType,
+  CandlestickSeries,
+  HistogramSeries,
+  type IChartApi,
+} from "lightweight-charts";
 import { fetchStockHistory, fetchBrokerHistory } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -12,14 +18,17 @@ export default function MainChart() {
 
   const { data: priceData, error: priceError } = useSWR(
     ["stock-history", activeTicker],
-    ([, t]) => fetchStockHistory(t, 250)
+    function ([, t]: [string, string]) {
+      return fetchStockHistory(t, 250);
+    }
   );
   const { data: flowData } = useSWR(
     ["broker-history", activeTicker],
-    ([, t]) => fetchBrokerHistory(t, 60)
+    function ([, t]: [string, string]) {
+      return fetchBrokerHistory(t, 60);
+    }
   );
 
-  // ── Render chart ──
   useEffect(() => {
     if (!containerRef.current || !priceData) return;
 
@@ -36,8 +45,8 @@ export default function MainChart() {
       timeScale: { timeVisible: false },
     });
 
-    // Candlestick
-    const candleSeries = chart.addCandlestickSeries({
+    // ── Candlestick (API v5: addSeries + definisi series) ──
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
       downColor: "#ef4444",
       borderVisible: false,
@@ -45,17 +54,19 @@ export default function MainChart() {
       wickDownColor: "#ef4444",
     });
     candleSeries.setData(
-      priceData.data.map((b) => ({
-        time: b.date,
-        open: b.open ?? 0,
-        high: b.high ?? 0,
-        low: b.low ?? 0,
-        close: b.close ?? 0,
-      }))
+      priceData.data.map(function (b) {
+        return {
+          time: b.date,
+          open: b.open ?? 0,
+          high: b.high ?? 0,
+          low: b.low ?? 0,
+          close: b.close ?? 0,
+        };
+      })
     );
 
-    // Volume histogram (sub-pane)
-    const volumeSeries = chart.addHistogramSeries({
+    // ── Volume histogram ──
+    const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: "volume" },
       priceScaleId: "vol",
     });
@@ -63,31 +74,38 @@ export default function MainChart() {
       scaleMargins: { top: 0.8, bottom: 0 },
     });
     volumeSeries.setData(
-      priceData.data.map((b) => ({
-        time: b.date,
-        value: b.volume ?? 0,
-        color: (b.close ?? 0) >= (b.open ?? 0) ? "#22c55e55" : "#ef444455",
-      }))
+      priceData.data.map(function (b) {
+        return {
+          time: b.date,
+          value: b.volume ?? 0,
+          color: (b.close ?? 0) >= (b.open ?? 0) ? "#22c55e55" : "#ef444455",
+        };
+      })
     );
 
-    // ── Overlay: Foreign Net Broker (bandarmologi) ──
+    // ── Overlay: Foreign Net Broker (juta Rupiah) ──
     if (flowData && flowData.data.length > 0) {
-      const flowSeries = chart.addHistogramSeries({
+      const flowSeries = chart.addSeries(HistogramSeries, {
         priceScaleId: "vol",
         priceFormat: { type: "volume" },
       });
       flowSeries.setData(
-        flowData.data.map((r) => ({
-          time: r.date,
-          value: (r.foreign_net_broker ?? 0) / 1_000_000, // dalam juta
-          color: (r.foreign_net_broker ?? 0) >= 0 ? "#38bdf8aa" : "#f97316aa",
-        }))
+        flowData.data.map(function (r) {
+          const v = r.foreign_net_broker ?? 0;
+          return {
+            time: r.date,
+            value: v / 1000000,
+            color: v >= 0 ? "#38bdf8aa" : "#f97316aa",
+          };
+        })
       );
     }
 
     chart.timeScale().fitContent();
 
-    return () => chart.remove();
+    return function cleanup() {
+      chart.remove();
+    };
   }, [priceData, flowData]);
 
   const lastBar = priceData?.data[priceData.data.length - 1];
