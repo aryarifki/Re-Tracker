@@ -16,7 +16,6 @@ import {
   ComposedChart,
   ReferenceLine,
 } from "recharts";
-import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -48,6 +47,8 @@ function signalColor(score: number | null): string {
   if (score === -1) return "#ea580c";
   return "#f43f5e";
 }
+
+import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = ["watchlist", "idx30", "lq45", "idx80", "all"];
