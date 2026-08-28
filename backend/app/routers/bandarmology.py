@@ -673,7 +673,7 @@ def ticker_detail(
     min_net_buy_b: float = 0.0,
 ):
     import time as _time
-    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(broker_codes) + "|" + str(flow_mode) + "|" + str(horizon)
+    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(horizon)
     now = _time.time()
     cached = _DETAIL_CACHE["data"].get(cache_key)
     if cached is not None and (now - _DETAIL_CACHE["ts"]) < 300:
