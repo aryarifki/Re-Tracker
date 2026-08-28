@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import {
   LineChart,
@@ -11,9 +11,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  BarChart,
-  Bar,
-  ComposedChart,
 } from "recharts";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -32,7 +29,7 @@ function signedColor(n: number): string {
   return n >= 0 ? "#10b981" : "#f43f5e";
 }
 
-const COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"];
+const COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1", "#14b8a6", "#d946ef"];
 
 export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ticker: string; analysisDate: string; windowDays: number }) {
   const [compareMode, setCompareMode] = useState(true);
@@ -47,17 +44,24 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     { refreshInterval: 60000 }
   );
 
+  // Sync selectedCodes with backend default when data loads
+  useEffect(() => {
+    if (data && data.default_codes && selectedCodes.length === 0) {
+      const limit = maxBrokers === 0 ? data.default_codes.length : Math.min(maxBrokers, data.default_codes.length);
+      setSelectedCodes(data.default_codes.slice(0, limit));
+    }
+  }, [data?.default_codes?.join(",")]);
+
   const allCodes = data?.all_codes || [];
   const rankedCodes = data?.ranked_codes || [];
-  const defaultCodes = data?.default_codes || [];
-  const activeCodes = selectedCodes.length > 0 ? selectedCodes : defaultCodes;
-  const maxSel = maxBrokers === 0 ? undefined : maxBrokers;
+  const activeCodes = selectedCodes;
+  const maxSel = maxBrokers === 0 ? 999 : maxBrokers;
 
   const toggleCode = (code: string) => {
     if (activeCodes.includes(code)) {
       setSelectedCodes(activeCodes.filter((c) => c !== code));
     } else {
-      if (maxSel && activeCodes.length >= maxSel) return;
+      if (activeCodes.length >= maxSel) return;
       setSelectedCodes([...activeCodes, code]);
     }
   };
@@ -80,7 +84,10 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
             <input
               type="checkbox"
               checked={compareMode}
-              onChange={(e) => setCompareMode(e.target.checked)}
+              onChange={(e) => {
+                setCompareMode(e.target.checked);
+                if (!e.target.checked) setSelectedCodes([]);
+              }}
               className="rounded bg-neutral-800 border-neutral-700"
             />
             Compare mode
@@ -88,7 +95,12 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
           <select
             className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200"
             value={maxBrokers}
-            onChange={(e) => { setMaxBrokers(Number(e.target.value)); setSelectedCodes([]); }}
+            onChange={(e) => {
+              const newMax = Number(e.target.value);
+              setMaxBrokers(newMax);
+              const limit = newMax === 0 ? 999 : newMax;
+              setSelectedCodes((prev) => prev.slice(0, limit));
+            }}
           >
             <option value={3}>3 brokers</option>
             <option value={5}>5 brokers</option>
@@ -104,68 +116,84 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
             <option value="Cumulative">Cumulative</option>
             <option value="Daily">Daily</option>
           </select>
+          <button
+            onClick={() => {
+              const limit = maxSel;
+              setSelectedCodes((data?.ranked_codes || []).slice(0, limit));
+            }}
+            className="bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-300"
+          >
+            Reset to top {maxBrokers === 0 ? "all" : maxBrokers}
+          </button>
         </div>
         <p className="text-xs text-neutral-500 mt-2">
           {flowMode === "Cumulative" ? "Cumulative mode sums broker net flow across the selected window." : "Daily mode shows each date separately."}
+          {compareMode && activeCodes.length > 0 && (
+            <span className="ml-2 text-blue-400">Showing {activeCodes.length} broker(s)</span>
+          )}
         </p>
 
         {/* Broker code chips */}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {(compareMode ? rankedCodes : allCodes).map((code: string) => {
-            const active = activeCodes.includes(code);
-            const disabled = !active && maxSel && activeCodes.length >= maxSel;
-            return (
-              <button
-                key={code}
-                onClick={() => !disabled && toggleCode(code)}
-                className={
-                  "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors " +
-                  (active
-                    ? "bg-blue-900/40 border-blue-700 text-blue-300"
-                    : disabled
-                    ? "bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed"
-                    : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200")
-                }
-              >
-                {code}
-              </button>
-            );
-          })}
-        </div>
+        {compareMode && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {(data?.ranked_codes || []).map((code: string) => {
+              const active = activeCodes.includes(code);
+              const disabled = !active && activeCodes.length >= maxSel;
+              return (
+                <button
+                  key={code}
+                  onClick={() => !disabled && toggleCode(code)}
+                  className={
+                    "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors " +
+                    (active
+                      ? "bg-blue-900/40 border-blue-700 text-blue-300"
+                      : disabled
+                      ? "bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed"
+                      : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200")
+                  }
+                >
+                  {code}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Compare Chart */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-        <h3 className="text-sm font-bold text-neutral-200 mb-3">
-          Broker Flow Comparison, {flowMode} in Selected Window
-        </h3>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-              <Tooltip
-                contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
-                labelStyle={{ color: "#94a3b8" }}
-                formatter={(value: any, name: string) => ["Rp " + Number(value).toFixed(2) + " B", name]}
-              />
-              <ReferenceLine y={0} stroke="#64748b" strokeWidth={1} />
-              {activeCodes.map((code: string, i: number) => (
-                <Line
-                  key={code}
-                  type="monotone"
-                  dataKey={code}
-                  stroke={COLORS[i % COLORS.length]}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
+      {compareMode && activeCodes.length > 0 && (
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">
+            Broker Flow Comparison, {flowMode} in Selected Window
+          </h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <Tooltip
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(value: any, name: string) => ["Rp " + Number(value).toFixed(2) + " B", name]}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <ReferenceLine y={0} stroke="#64748b" strokeWidth={1} />
+                {activeCodes.map((code: string, i: number) => (
+                  <Line
+                    key={code}
+                    type="monotone"
+                    dataKey={code}
+                    stroke={COLORS[i % COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Distribution + Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
