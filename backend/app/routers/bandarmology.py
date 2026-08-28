@@ -790,3 +790,33 @@ def ticker_detail(
     _DETAIL_CACHE["ts"] = now
     _DETAIL_CACHE["data"][cache_key] = result
     return result
+
+# ============================================================
+# Supporting endpoints for sidebar controls
+# ============================================================
+
+@router.get("/dates/{ticker}")
+def ticker_dates(ticker: str):
+    ticker = ticker.upper().strip()
+    try:
+        activity_df = storage.read_broker_activity([ticker])
+        if activity_df.empty:
+            return {"dates": []}
+        dates = sorted(activity_df[activity_df["ticker"] == ticker]["date"].dt.date.unique().tolist())
+        return {"dates": [str(d) for d in dates]}
+    except Exception as e:
+        return {"dates": [], "error": str(e)}
+
+
+@router.get("/universe/{mode}")
+def universe_tickers(mode: str):
+    try:
+        tickers = universe.get_universe(mode=mode)
+        try:
+            available = universe.get_master_tickers(active_only=True)
+            tickers = [t for t in tickers if t in available]
+        except Exception:
+            pass
+        return {"mode": mode, "tickers": tickers, "count": len(tickers)}
+    except Exception as e:
+        return {"mode": mode, "tickers": [], "count": 0, "error": str(e)}
