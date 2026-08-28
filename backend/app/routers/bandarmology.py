@@ -821,6 +821,7 @@ def ticker_detail(
         "broker_summary": broker_summary_rows,
         "price_performance": perf_rows,
         "profile_flow": profile_rows,
+        "profile_broker_detail": _profile_broker_detail_table(activity_window),
         "smart_daily": smart_daily_rows,
         "price_chart": price_chart_rows,
         "signal_overlay": signal_overlay,
