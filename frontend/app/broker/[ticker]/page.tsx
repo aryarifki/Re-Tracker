@@ -69,6 +69,10 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
       : metrics
         ? "Data belum tersedia untuk ticker ini. Jalankan pipeline atau coba ticker lain."
         : "Memuat…";
+      {/* DEBUG — hapus setelah beres */}
+      <pre className="mt-2 p-2 text-[0.6rem] text-gray-500 overflow-x-auto border border-[var(--line)] rounded">
+        {JSON.stringify(metrics)?.slice(0, 300) ?? "null"}
+      </pre>
 
   return (
     <div className="min-h-screen bg-black text-[var(--text)] p-3 max-w-[1400px] mx-auto fade-in">
