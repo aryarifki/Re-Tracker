@@ -316,62 +316,69 @@ def backfill(tickers: str = "BBCA", start: str = "2024-01-01", end: str | None =
 
     threading.Thread(target=_job, daemon=True).start()
     return {"status": "started", "tickers": tickers.split(","), "start": start}
-    # ══════════════════════════════════════════════════════════
-# Daily Summary (Home mobile) — vectorized, support universe all
+# ══════════════════════════════════════════════════════════
+# Daily Summary — dengan cache 5 menit (universe all = 962 ticker)
 # ══════════════════════════════════════════════════════════
 
-@router.get("/daily-summary")
-def daily_summary(universe_mode: str = "watchlist"):
-    tickers = universe.get_universe(mode=universe_mode)
+_SUMMARY_CACHE: dict = {"ts": 0.0, "data": None}
 
-    # baca SEMUA ticker sekaligus (cepat untuk 900+ ticker)
+@router.get("/daily-summary")
+def daily_summary(universe_mode: str = "all", refresh: int = 0):
+    import time as _time
+
+    now = _time.time()
+    cached = _SUMMARY_CACHE["data"]
+    if cached is not None and not refresh and (now - _SUMMARY_CACHE["ts"]) < 300:
+        return cached
+
+    tickers = universe.get_universe(mode=universe_mode)
     price_df = storage.read_prices(tickers)
     flow_df = storage.read_broker_flow(tickers)
 
     items = []
-    if flow_df.empty:
-        return _clean({"as_of": None, "signal_counts": {}, "items": [], "top_conviction": []})
+    if not flow_df.empty:
+        flow_df = flow_df.sort_values("date")
+        for t, fsub in flow_df.groupby("ticker"):
+            try:
+                last = fsub.iloc[-1]
+                psub = price_df[price_df["ticker"] == t] if not price_df.empty else fsub.iloc[0:0]
+                psub = psub[psub["date"] <= last["date"]].sort_values("date")
 
-    flow_df = flow_df.sort_values("date")
+                ret_5d = None
+                if len(psub) > 5:
+                    base = float(psub.iloc[-6]["close"])
+                    if base:
+                        ret_5d = float(psub.iloc[-1]["close"]) / base - 1
 
-    for t, fsub in flow_df.groupby("ticker"):
-        try:
-            last = fsub.iloc[-1]
+                f5 = None
+                tail5 = fsub.tail(5)
+                if "foreign_net_broker" in tail5.columns:
+                    f5 = float(tail5["foreign_net_broker"].fillna(0).sum())
 
-            psub = price_df[price_df["ticker"] == t] if not price_df.empty else fsub.iloc[0:0]
-            psub = psub[psub["date"] <= last["date"]].sort_values("date")
-
-            ret_5d = None
-            if len(psub) > 5:
-                base = float(psub.iloc[-6]["close"])
-                if base:
-                    ret_5d = float(psub.iloc[-1]["close"]) / base - 1
-
-            f5 = None
-            tail5 = fsub.tail(5)
-            if "foreign_net_broker" in tail5.columns:
-                f5 = float(tail5["foreign_net_broker"].fillna(0).sum())
-
-            items.append({
-                "ticker": t,
-                "date": str(last["date"]),
-                "signal": last.get("bandar_signal"),
-                "signal_score": last.get("bandar_signal_score"),
-                "close": float(psub.iloc[-1]["close"]) if len(psub) else None,
-                "ret_5d": ret_5d,
-                "foreign_net_5d": f5,
-                "spark": [float(x) for x in psub.tail(30)["close"]],
-            })
-        except Exception:
-            continue
+                items.append({
+                    "ticker": t,
+                    "date": str(last["date"]),
+                    "signal": last.get("bandar_signal"),
+                    "signal_score": last.get("bandar_signal_score"),
+                    "close": float(psub.iloc[-1]["close"]) if len(psub) else None,
+                    "ret_5d": ret_5d,
+                    "foreign_net_5d": f5,
+                    "spark": [float(x) for x in psub.tail(30)["close"]],
+                })
+            except Exception:
+                continue
 
     from collections import Counter
     counts = Counter((i["signal"] or "NETRAL").upper() for i in items)
     top = sorted(items, key=lambda x: (x["signal_score"] or 0), reverse=True)[:5]
 
-    return _clean({
+    result = _clean({
         "as_of": max((i["date"] for i in items), default=None),
         "signal_counts": dict(counts),
         "items": items,
         "top_conviction": top,
     })
+
+    _SUMMARY_CACHE["ts"] = now
+    _SUMMARY_CACHE["data"] = result
+    return result
