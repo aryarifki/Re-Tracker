@@ -1,5 +1,4 @@
 "use client";
-import { use } from "react";
 import { use, useState } from "react";
 import useSWR from "swr";
 import MetricCard from "@/app/components/MetricCard";
@@ -23,7 +22,6 @@ function Chip({ children }: { children: React.ReactNode }) {
 }
 
 function buildAlerts(m: any): string[] {
-  // Replica contradiction_alerts di app.py
   const out: string[] = [];
   if (!m) return out;
   const sig = (m.signal ?? "").toUpperCase();
@@ -34,7 +32,7 @@ function buildAlerts(m: any): string[] {
     out.push("⚠️ Sinyal distribusi bandar, tetapi foreign net 5D positif — kontradiksi, periksa broker detail.");
   const c = m.conviction?.components;
   if (c && c.signal >= 80 && c.broker < 40)
-    out.push("⚠️ Sinyal kuat namun win rate broker validasi rendah — conviction dipermalukan, kurangi bobot sinyal.");
+    out.push("⚠️ Sinyal kuat namun win rate broker validasi rendah — kurangi bobot sinyal.");
   return out;
 }
 
@@ -43,7 +41,10 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
   const ticker = raw.toUpperCase();
   const [windowDays, setWindowDays] = useState(20);
 
-  const { data: metrics } = useSWR(`/api/bandar/stocks/ticker/metrics?window={ticker}/metrics?window=ticker/metrics?window={windowDays}`, fetcher);
+  const { data: metrics } = useSWR(
+    `/api/bandar/stocks/ticker/metrics?window={ticker}/metrics?window=ticker/metrics?window={windowDays}`,
+    fetcher
+  );
 
   const score = metrics?.conviction?.score ?? 0;
   const tone = score < 40 ? "negative" : score <= 70 ? "warning" : "positive";
@@ -67,10 +68,25 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
           </div>
           <div className="text-lg font-bold text-[var(--strong)]">Smart Money Dashboard</div>
         </div>
-        <div className="flex flex-wrap gap-1.5 text-[0.7rem] font-semibold">
+        <div className="flex flex-wrap items-center gap-1.5 text-[0.7rem] font-semibold">
           <Chip>{ticker}</Chip>
           <Chip>Analysis {metrics?.analysis_date ?? "-"}</Chip>
-          <Chip>Window {metrics?.window_start ?? "-"} → {metrics?.analysis_date ?? "-"}</Chip>
+          <Chip>
+            Window {metrics?.window_start ?? "-"} → {metrics?.analysis_date ?? "-"}
+          </Chip>
+          {[10, 20, 30, 60, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setWindowDays(d)}
+              className={`px-2.5 py-1 rounded-md border font-semibold transition-colors ${
+                windowDays === d
+                  ? "border-[var(--blue)] text-[var(--blue)] bg-[var(--blue)]/10"
+                  : "border-[var(--line)] text-[var(--muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
         </div>
       </div>
 
@@ -79,24 +95,53 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
         <MetricCard
           label="Conviction Score"
           value={metrics ? `${metrics.conviction.score}/100` : "…"}
-          note="weighted model" tone={tone as never}
+          note="weighted model"
+          tone={tone as never}
           title={`p=metrics?.conviction?.pvalue??"n/a";{metrics?.conviction?.p_value ?? "n/a"};metrics?.conviction?.pv​alue??"n/a";{metrics?.conviction?.broker_note ?? ""}`}
         />
-        <MetricCard label="Signal" value={fmtSignal(metrics?.signal)}
-          tone={metrics?.signal?.includes("DISTRIBUTION") ? "negative" : metrics?.signal?.includes("ACCUMULATION") ? "positive" : "neutral"} />
-        <MetricCard label="5D Return" value={fmtPct(metrics?.ret_5d)}
-          tone={(metrics?.ret_5d ?? 0) >= 0 ? "positive" : "negative"} note="price context" />
-        <MetricCard label="Foreign Net 5D" value={fmtRp(metrics?.foreign_net_5d)}
-          tone={(metrics?.foreign_net_5d ?? 0) >= 0 ? "positive" : "negative"} note="broker summary" />
-        <MetricCard label="Top Buyer" value={metrics?.top_buyers?.[0]?.broker_code ?? "-"}
-          note={fmtRp(metrics?.top_buyers?.[0]?.net_value)} tone="positive" />
-        <MetricCard label="Smart Cumulative" value={fmtRp(metrics?.smart_cumulative)}
-          tone={(metrics?.smart_cumulative ?? 0) >= 0 ? "positive" : "negative"} note="broker window" />
+        <MetricCard
+          label="Signal"
+          value={fmtSignal(metrics?.signal)}
+          tone={
+            metrics?.signal?.includes("DISTRIBUTION")
+              ? "negative"
+              : metrics?.signal?.includes("ACCUMULATION")
+                ? "positive"
+                : "neutral"
+          }
+        />
+        <MetricCard
+          label="5D Return"
+          value={fmtPct(metrics?.ret_5d)}
+          tone={(metrics?.ret_5d ?? 0) >= 0 ? "positive" : "negative"}
+          note="price context"
+        />
+        <MetricCard
+          label="Foreign Net 5D"
+          value={fmtRp(metrics?.foreign_net_5d)}
+          tone={(metrics?.foreign_net_5d ?? 0) >= 0 ? "positive" : "negative"}
+          note="broker summary"
+        />
+        <MetricCard
+          label="Top Buyer"
+          value={metrics?.top_buyers?.[0]?.broker_code ?? "-"}
+          note={fmtRp(metrics?.top_buyers?.[0]?.net_value)}
+          tone="positive"
+        />
+        <MetricCard
+          label="Smart Cumulative"
+          value={fmtRp(metrics?.smart_cumulative)}
+          tone={(metrics?.smart_cumulative ?? 0) >= 0 ? "positive" : "negative"}
+          note="broker window"
+        />
       </div>
 
       {/* ALERTS */}
       {alerts.map((a) => (
-        <div key={a} className="mt-2 px-3 py-2 text-[0.82rem] rounded-lg border border-amber-700/40 bg-amber-500/10 text-amber-400">
+        <div
+          key={a}
+          className="mt-2 px-3 py-2 text-[0.82rem] rounded-lg border border-amber-700/40 bg-amber-500/10 text-amber-400"
+        >
           {a}
         </div>
       ))}
