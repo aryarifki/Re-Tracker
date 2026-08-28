@@ -41,9 +41,6 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
   const { ticker: raw } = use(params);
   const ticker = raw.toUpperCase();
 
-  const [windowDays, setWindowDays] = [20, (_: number) => {}]; // sederhana dulu; bisa diangkat ke searchParams
-  const { data: m, error } = useSWR(`/api/broker/base/${ticker}`, fetcher); // placeholder jika perlu
-
   const { data: metrics } = useSWR(`/api/bandar/stocks/ticker/metrics?window={ticker}/metrics?window=ticker/metrics?window={windowDays}`, fetcher);
 
   const score = metrics?.conviction?.score ?? 0;
