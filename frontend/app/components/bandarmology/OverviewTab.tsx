@@ -6,7 +6,9 @@ import { fmtRp } from "@/app/components/fmt";
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
 export default function OverviewTab({ ticker, windowDays }: { ticker: string; windowDays: number }) {
-  const { data: flow } = useSWR(`/api/bandar/stocks/ticker/smart−flow?lookbackdays={ticker}/smart-flow?lookback_days=ticker/smart−flow?lookbackd​ays={windowDays}`, fetcher);
+  const flowUrl =
+    "/api/bandar/stocks/" + ticker + "/smart-flow?lookback_days=" + windowDays;
+  const { data: flow } = useSWR(flowUrl, fetcher);
   const rows = flow?.data ?? [];
 
   return (
@@ -24,15 +26,26 @@ export default function OverviewTab({ ticker, windowDays }: { ticker: string; wi
               legend: { textStyle: { color: "#8a8a8a", fontSize: 10 }, top: 0 },
               grid: { left: 70, right: 20, top: 30, bottom: 25 },
               xAxis: { type: "category", data: rows.map((r: any) => r.date), ...axisCommon },
-              yAxis: [
-                { type: "value", ...axisCommon, axisLabel: { ...axisCommon.axisLabel,
-                  formatter: (v: number) => fmtRp(v) } },
-              ],
+              yAxis: {
+                type: "value",
+                ...axisCommon,
+                axisLabel: { ...axisCommon.axisLabel, formatter: (v: number) => fmtRp(v) },
+              },
               series: [
-                { name: "Smart Net", type: "bar", data: rows.map((r: any) => r.smart_net),
-                  itemStyle: { color: (p: any) => (p.value >= 0 ? "#10b981" : "#f43f5e") } },
-                { name: "Cumulative", type: "line", data: rows.map((r: any) => r.cumulative_net),
-                  lineStyle: { color: "#3b82f6" }, itemStyle: { color: "#3b82f6" }, symbol: "none" },
+                {
+                  name: "Smart Net",
+                  type: "bar",
+                  data: rows.map((r: any) => r.smart_net),
+                  itemStyle: { color: (p: any) => (p.value >= 0 ? "#10b981" : "#f43f5e") },
+                },
+                {
+                  name: "Cumulative",
+                  type: "line",
+                  data: rows.map((r: any) => r.cumulative_net),
+                  lineStyle: { color: "#3b82f6" },
+                  itemStyle: { color: "#3b82f6" },
+                  symbol: "none",
+                },
               ],
             }}
             height={320}
