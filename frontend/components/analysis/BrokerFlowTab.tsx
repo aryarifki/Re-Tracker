@@ -46,11 +46,18 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
 
   // Sync selectedCodes with backend default when data loads
   useEffect(() => {
-    if (data && data.default_codes && selectedCodes.length === 0) {
-      const limit = maxBrokers === 0 ? data.default_codes.length : Math.min(maxBrokers, data.default_codes.length);
-      setSelectedCodes(data.default_codes.slice(0, limit));
+    if (!data) return;
+    if (maxBrokers === 0) {
+      // All mode: select all ranked codes
+      setSelectedCodes(data.ranked_codes || []);
+    } else if (selectedCodes.length === 0) {
+      // Default: select top N
+      setSelectedCodes((data.default_codes || []).slice(0, maxBrokers));
+    } else if (selectedCodes.length > maxBrokers && maxBrokers > 0) {
+      // Trim if exceeds max
+      setSelectedCodes(selectedCodes.slice(0, maxBrokers));
     }
-  }, [data?.default_codes?.join(",")]);
+  }, [data?.ranked_codes?.join(","), maxBrokers]);
 
   const allCodes = data?.all_codes || [];
   const rankedCodes = data?.ranked_codes || [];
