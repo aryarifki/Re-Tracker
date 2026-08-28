@@ -31,11 +31,26 @@ function signedColor(n: number): string {
 
 const COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1", "#14b8a6", "#d946ef"];
 
+const PROFILE_OPTIONS = [
+  { key: "all", label: "All Profiles" },
+  { key: "smart_foreign", label: "Foreign Smart Money" },
+  { key: "local_institutional", label: "Local Institutions" },
+  { key: "market_maker", label: "Market Makers" },
+  { key: "bandar_gorengan", label: "Speculative Operators" },
+  { key: "retail", label: "Retail-Dominant" },
+  { key: "lainnya", label: "Other Brokers" },
+];
+
 export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ticker: string; analysisDate: string; windowDays: number }) {
   const [compareMode, setCompareMode] = useState(true);
   const [maxBrokers, setMaxBrokers] = useState(5);
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const [flowMode, setFlowMode] = useState("Cumulative");
+  const [distMode, setDistMode] = useState("Single day");
+  const [distDate, setDistDate] = useState(analysisDate);
+  const [distStart, setDistStart] = useState(analysisDate);
+  const [distEnd, setDistEnd] = useState(analysisDate);
+  const [profileFilter, setProfileFilter] = useState("all");
 
   const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "") + "&flow_mode=" + flowMode + (selectedCodes.length > 0 ? "&broker_codes=" + selectedCodes.join(",") : "");
   const { data, error, isLoading } = useSWR(
@@ -44,23 +59,25 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     { refreshInterval: 60000 }
   );
 
-  // Sync selectedCodes with backend default when data loads
   useEffect(() => {
     if (!data) return;
     if (maxBrokers === 0) {
-      // All mode: select all ranked codes
       setSelectedCodes(data.ranked_codes || []);
     } else if (selectedCodes.length === 0) {
-      // Default: select top N
       setSelectedCodes((data.default_codes || []).slice(0, maxBrokers));
     } else if (selectedCodes.length > maxBrokers && maxBrokers > 0) {
-      // Trim if exceeds max
       setSelectedCodes(selectedCodes.slice(0, maxBrokers));
     }
   }, [data?.ranked_codes?.join(","), maxBrokers]);
 
-  const allCodes = data?.all_codes || [];
-  const rankedCodes = data?.ranked_codes || [];
+  useEffect(() => {
+    if (analysisDate) {
+      setDistDate(analysisDate);
+      setDistStart(analysisDate);
+      setDistEnd(analysisDate);
+    }
+  }, [analysisDate]);
+
   const activeCodes = selectedCodes;
   const maxSel = maxBrokers === 0 ? 999 : maxBrokers;
 
@@ -77,124 +94,65 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
   if (error || data?.error) return <div className="text-red-400 text-sm">{data?.error || "Error"}</div>;
 
   const chartData = data?.compare_chart || [];
-  const dist = data?.distribution || { buyers: [], sellers: [], edges: [] };
+  const dist = data?.distribution || { buyers: [], sellers: [], edges: [], dist_start: "-", dist_end: "-" };
   const summary = data?.summary || [];
   const detailRows = data?.detail_rows || [];
+  const profileFlow = data?.profile_flow || [];
+  const profileDetail = data?.profile_broker_detail || [];
+
+  const filteredProfileDetail = profileFilter === "all" ? profileDetail : profileDetail.filter((r: any) => r.profile_key === profileFilter);
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
+      {/* ====== BROKER DRILL-DOWN / COMPARE ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Drill-Down</h3>
         <div className="flex flex-wrap gap-3 items-center">
           <label className="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={compareMode}
-              onChange={(e) => {
-                setCompareMode(e.target.checked);
-                if (!e.target.checked) setSelectedCodes([]);
-              }}
-              className="rounded bg-neutral-800 border-neutral-700"
-            />
+            <input type="checkbox" checked={compareMode} onChange={(e) => { setCompareMode(e.target.checked); if (!e.target.checked) setSelectedCodes([]); }} className="rounded bg-neutral-800 border-neutral-700" />
             Compare mode
           </label>
-          <select
-            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200"
-            value={maxBrokers}
-            onChange={(e) => {
-              const newMax = Number(e.target.value);
-              setMaxBrokers(newMax);
-              const limit = newMax === 0 ? 999 : newMax;
-              setSelectedCodes((prev) => prev.slice(0, limit));
-            }}
-          >
+          <select className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={maxBrokers} onChange={(e) => { const v = Number(e.target.value); setMaxBrokers(v); setSelectedCodes((prev) => prev.slice(0, v === 0 ? 999 : v)); }}>
             <option value={3}>3 brokers</option>
             <option value={5}>5 brokers</option>
             <option value={8}>8 brokers</option>
             <option value={12}>12 brokers</option>
             <option value={0}>All</option>
           </select>
-          <select
-            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200"
-            value={flowMode}
-            onChange={(e) => setFlowMode(e.target.value)}
-          >
+          <select className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={flowMode} onChange={(e) => setFlowMode(e.target.value)}>
             <option value="Cumulative">Cumulative</option>
             <option value="Daily">Daily</option>
           </select>
-          <button
-            onClick={() => {
-              const limit = maxSel;
-              setSelectedCodes((data?.ranked_codes || []).slice(0, limit));
-            }}
-            className="bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-300"
-          >
-            Reset to top {maxBrokers === 0 ? "all" : maxBrokers}
-          </button>
+          <button onClick={() => { const lim = maxSel; setSelectedCodes((data?.ranked_codes || []).slice(0, lim)); }} className="bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-300">Reset to top {maxBrokers === 0 ? "all" : maxBrokers}</button>
         </div>
-        <p className="text-xs text-neutral-500 mt-2">
-          {flowMode === "Cumulative" ? "Cumulative mode sums broker net flow across the selected window." : "Daily mode shows each date separately."}
-          {compareMode && activeCodes.length > 0 && (
-            <span className="ml-2 text-blue-400">Showing {activeCodes.length} broker(s)</span>
-          )}
-        </p>
-
-        {/* Broker code chips */}
+        <p className="text-xs text-neutral-500 mt-2">{flowMode === "Cumulative" ? "Cumulative mode sums broker net flow across the selected window." : "Daily mode shows each date separately."}{compareMode && activeCodes.length > 0 && <span className="ml-2 text-blue-400">Showing {activeCodes.length} broker(s)</span>}</p>
         {compareMode && (
           <div className="flex flex-wrap gap-2 mt-3">
             {(data?.ranked_codes || []).map((code: string) => {
               const active = activeCodes.includes(code);
               const disabled = !active && activeCodes.length >= maxSel;
               return (
-                <button
-                  key={code}
-                  onClick={() => !disabled && toggleCode(code)}
-                  className={
-                    "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors " +
-                    (active
-                      ? "bg-blue-900/40 border-blue-700 text-blue-300"
-                      : disabled
-                      ? "bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed"
-                      : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200")
-                  }
-                >
-                  {code}
-                </button>
+                <button key={code} onClick={() => !disabled && toggleCode(code)} className={"px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors " + (active ? "bg-blue-900/40 border-blue-700 text-blue-300" : disabled ? "bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed" : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-neutral-200")}>{code}</button>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Compare Chart */}
+      {/* ====== BROKER FLOW COMPARISON CHART ====== */}
       {compareMode && activeCodes.length > 0 && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">
-            Broker Flow Comparison, {flowMode} in Selected Window
-          </h3>
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Flow Comparison, {flowMode} in Selected Window</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
                 <YAxis tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-                <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
-                  labelStyle={{ color: "#94a3b8" }}
-                  formatter={(value: any, name: string) => ["Rp " + Number(value).toFixed(2) + " B", name]}
-                />
+                <Tooltip contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }} labelStyle={{ color: "#94a3b8" }} formatter={(value: any, name: string) => ["Rp " + Number(value).toFixed(2) + " B", name]} />
                 <ReferenceLine y={0} stroke="#64748b" strokeWidth={1} />
                 {activeCodes.map((code: string, i: number) => (
-                  <Line
-                    key={code}
-                    type="monotone"
-                    dataKey={code}
-                    stroke={COLORS[i % COLORS.length]}
-                    strokeWidth={2}
-                    dot={false}
-                    connectNulls
-                  />
+                  <Line key={code} type="monotone" dataKey={code} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} connectNulls />
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -202,107 +160,201 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         </div>
       )}
 
-      {/* Distribution + Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Distribution Visual */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">
-            Broker Distribution, Estimated Matching on {dist.dist_date || "-"}
-          </h3>
-          <p className="text-xs text-neutral-500 mb-3">
-            Exact broker-to-broker counterparties unavailable. Estimated same-day matching based on net buy/sell totals.
-          </p>
-
-          {/* Buyers */}
-          <div className="mb-4">
-            <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">Buyers</div>
-            <div className="space-y-2">
-              {dist.buyers.map((b: any, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-neutral-300 w-10">{b.broker}</span>
-                  <span className="text-[10px] text-neutral-500 w-14">{b.type}</span>
-                  <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: Math.min(100, (b.net_value / (dist.buyers[0]?.net_value || 1)) * 100) + "%" }} />
+      {/* ====== BROKER PROFILE FLOW ====== */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Profile Flow</h3>
+        {profileFlow.length === 0 ? (
+          <p className="text-xs text-neutral-500">No profile flow for this window.</p>
+        ) : (
+          <div className="space-y-4">
+            {profileFlow.map((row: any, i: number) => (
+              <div key={i} className="border border-neutral-800 rounded-lg p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <div className="text-sm font-bold text-neutral-200">{row.label}</div>
+                    <div className="text-xs text-neutral-500">{row.description}</div>
                   </div>
-                  <span className="text-xs font-mono text-emerald-400 w-20 text-right">{fmtRp(b.net_value)}</span>
+                  <div className="text-sm font-bold font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sellers */}
-          <div>
-            <div className="text-xs font-bold text-red-400 uppercase tracking-wider mb-2">Sellers</div>
-            <div className="space-y-2">
-              {dist.sellers.map((s: any, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-neutral-300 w-10">{s.broker}</span>
-                  <span className="text-[10px] text-neutral-500 w-14">{s.type}</span>
-                  <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-red-500 rounded-full" style={{ width: Math.min(100, (Math.abs(s.net_value) / (Math.abs(dist.sellers[0]?.net_value) || 1)) * 100) + "%" }} />
-                  </div>
-                  <span className="text-xs font-mono text-red-400 w-20 text-right">{fmtRp(s.net_value)}</span>
+                <div className="h-1 bg-neutral-800 rounded-full overflow-hidden mb-2">
+                  <div className="h-full rounded-full" style={{ width: "100%", backgroundColor: signedColor(row.net) }} />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Estimated Matching */}
-          {dist.edges.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-neutral-800">
-              <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Estimated Matching</div>
-              <div className="space-y-1.5">
-                {dist.edges.map((e: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-emerald-400 font-mono">{e.buyer_code}</span>
-                    <span className="text-neutral-500">→</span>
-                    <span className="text-red-400 font-mono">{e.seller_code}</span>
-                    <span className="text-neutral-300 font-mono">{fmtRp(e.matched_value)}</span>
-                  </div>
-                ))}
+                <div className="flex flex-wrap gap-2">
+                  {(row.top_brokers || []).map((b: any, j: number) => (
+                    <span key={j} className="inline-flex items-center gap-1 text-xs bg-neutral-800 border border-neutral-700 rounded-full px-2 py-0.5">
+                      <span className="font-mono text-neutral-300">{b.broker_code}</span>
+                      <span className="text-[10px] text-neutral-500">{b.participant_type}</span>
+                      <span className="font-mono font-semibold" style={{ color: signedColor(b.net) }}>{fmtRp(b.net)}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Broker Summary */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Summary</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-neutral-500 border-b border-neutral-800">
-                  <th className="text-left py-1.5 pr-2">Buy Broker</th>
-                  <th className="text-left py-1.5 pr-2">Type</th>
-                  <th className="text-right py-1.5 pr-2">Buy Value</th>
-                  <th className="text-left py-1.5 pr-2">Sell Broker</th>
-                  <th className="text-left py-1.5 pr-2">Type</th>
-                  <th className="text-right py-1.5">Sell Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.map((row: any, i: number) => (
-                  <tr key={i} className="border-b border-neutral-800/50">
-                    <td className="py-1.5 pr-2 text-emerald-400 font-mono">{row.buy_broker || "-"}</td>
-                    <td className="py-1.5 pr-2 text-neutral-400">{row.buy_type || "-"}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy_value)}</td>
-                    <td className="py-1.5 pr-2 text-red-400 font-mono">{row.sell_broker || "-"}</td>
-                    <td className="py-1.5 pr-2 text-neutral-400">{row.sell_type || "-"}</td>
-                    <td className="py-1.5 text-right font-mono text-red-400">{fmtRp(row.sell_value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            ))}
           </div>
+        )}
+      </div>
+
+      {/* ====== PROFILE DETAIL ====== */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h3 className="text-sm font-bold text-neutral-200">Profile Detail</h3>
+          <select className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
+            {PROFILE_OPTIONS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-neutral-900 z-10">
+              <tr className="text-neutral-500 border-b border-neutral-800">
+                <th className="text-left py-1.5 pr-2">Profile</th>
+                <th className="text-left py-1.5 pr-2">Broker</th>
+                <th className="text-left py-1.5 pr-2">Type</th>
+                <th className="text-right py-1.5 pr-2">Buy</th>
+                <th className="text-right py-1.5 pr-2">Sell</th>
+                <th className="text-right py-1.5 pr-2">Net</th>
+                <th className="text-right py-1.5 pr-2">Freq</th>
+                <th className="text-right py-1.5 pr-2">Days</th>
+                <th className="text-right py-1.5">Avg/Tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProfileDetail.map((row: any, i: number) => (
+                <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                  <td className="py-1.5 pr-2 text-neutral-300 font-semibold">{row.profile}</td>
+                  <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
+                  <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell)}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.freq.toLocaleString("id-ID")}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.days}</td>
+                  <td className="py-1.5 text-right font-mono text-neutral-400">{fmtRp(row.avg_value_tx)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredProfileDetail.length === 0 && <p className="text-xs text-neutral-500 py-2">No data for selected profile.</p>}
         </div>
       </div>
 
-      {/* Detailed Broker Rows */}
+      {/* ====== BROKER DISTRIBUTION ====== */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Distribution</h3>
+        <div className="flex flex-wrap gap-3 mb-3">
+          <select className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={distMode} onChange={(e) => setDistMode(e.target.value)}>
+            <option value="Single day">Single day</option>
+            <option value="Date range">Date range</option>
+          </select>
+          {distMode === "Single day" ? (
+            <input type="date" className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={distDate} onChange={(e) => setDistDate(e.target.value)} />
+          ) : (
+            <>
+              <input type="date" className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={distStart} onChange={(e) => setDistStart(e.target.value)} />
+              <span className="text-neutral-500 self-center">to</span>
+              <input type="date" className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200" value={distEnd} onChange={(e) => setDistEnd(e.target.value)} />
+            </>
+          )}
+        </div>
+        <p className="text-xs text-neutral-500 mb-3">Exact broker-to-broker counterparties are unavailable. The flow chart below falls back to estimated same-day matching based on broker net buy and sell totals.</p>
+        <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Broker Distribution, Estimated Matching on {dist.dist_start || "-"}{dist.dist_end !== dist.dist_start ? " to " + dist.dist_end : ""}</h4>
+
+        {/* Buyers */}
+        <div className="mb-4">
+          <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">Buyers</div>
+          <div className="space-y-2">
+            {dist.buyers.map((b: any, i: number) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs font-mono text-neutral-300 w-10">{b.broker}</span>
+                <span className="text-[10px] text-neutral-500 w-14">{b.type}</span>
+                <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: Math.min(100, (b.net_value / (dist.buyers[0]?.net_value || 1)) * 100) + "%" }} />
+                </div>
+                <span className="text-xs font-mono text-emerald-400 w-20 text-right">{fmtRp(b.net_value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Sellers */}
+        <div>
+          <div className="text-xs font-bold text-red-400 uppercase tracking-wider mb-2">Sellers</div>
+          <div className="space-y-2">
+            {dist.sellers.map((s: any, i: number) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs font-mono text-neutral-300 w-10">{s.broker}</span>
+                <span className="text-[10px] text-neutral-500 w-14">{s.type}</span>
+                <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-red-500 rounded-full" style={{ width: Math.min(100, (Math.abs(s.net_value) / (Math.abs(dist.sellers[0]?.net_value) || 1)) * 100) + "%" }} />
+                </div>
+                <span className="text-xs font-mono text-red-400 w-20 text-right">{fmtRp(s.net_value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Estimated Matching */}
+        {dist.edges.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-neutral-800">
+            <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Estimated Matching</div>
+            <div className="max-h-48 overflow-y-auto space-y-1.5">
+              {dist.edges.map((e: any, i: number) => (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <span className="text-emerald-400 font-mono">{e.buyer_code}</span>
+                  <span className="text-neutral-500">→</span>
+                  <span className="text-red-400 font-mono">{e.seller_code}</span>
+                  <span className="text-neutral-300 font-mono">{fmtRp(e.matched_value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ====== BROKER SUMMARY ====== */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Summary</h3>
+        <div className="max-h-96 overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-neutral-900 z-10">
+              <tr className="text-neutral-500 border-b border-neutral-800">
+                <th className="text-left py-1.5 pr-2">Buy Broker</th>
+                <th className="text-left py-1.5 pr-2">Type</th>
+                <th className="text-right py-1.5 pr-2">Buy Value</th>
+                <th className="text-right py-1.5 pr-2">Buy Lot</th>
+                <th className="text-right py-1.5 pr-2">Buy Avg</th>
+                <th className="text-left py-1.5 pr-2">Sell Broker</th>
+                <th className="text-left py-1.5 pr-2">Type</th>
+                <th className="text-right py-1.5 pr-2">Sell Value</th>
+                <th className="text-right py-1.5 pr-2">Sell Lot</th>
+                <th className="text-right py-1.5">Sell Avg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.map((row: any, i: number) => (
+                <tr key={i} className="border-b border-neutral-800/50">
+                  <td className="py-1.5 pr-2 text-emerald-400 font-mono">{row.buy_broker || "-"}</td>
+                  <td className="py-1.5 pr-2 text-neutral-400">{row.buy_type || "-"}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy_value)}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.buy_lot ? row.buy_lot.toLocaleString("id-ID") : "-"}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.buy_avg ? row.buy_avg.toFixed(0) : "-"}</td>
+                  <td className="py-1.5 pr-2 text-red-400 font-mono">{row.sell_broker || "-"}</td>
+                  <td className="py-1.5 pr-2 text-neutral-400">{row.sell_type || "-"}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell_value)}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.sell_lot ? row.sell_lot.toLocaleString("id-ID") : "-"}</td>
+                  <td className="py-1.5 text-right font-mono text-neutral-400">{row.sell_avg ? row.sell_avg.toFixed(0) : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ====== DETAILED BROKER ROWS ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Detailed Broker Rows</h3>
-        <div className="overflow-x-auto">
+        <div className="max-h-96 overflow-y-auto">
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 bg-neutral-900 z-10">
               <tr className="text-neutral-500 border-b border-neutral-800">
                 <th className="text-left py-1.5 pr-2">Broker</th>
                 <th className="text-left py-1.5 pr-2">Type</th>
