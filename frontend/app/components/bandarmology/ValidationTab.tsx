@@ -5,8 +5,13 @@ import { fmtPct } from "@/app/components/fmt";
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
 export default function ValidationTab({ ticker, horizon }: { ticker: string; horizon: number }) {
-  const { data: scan } = useSWR(`/api/bandar/validation/broker-scan?ticker={ticker}&horizon={horizon}&min_events=5`, fetcher);
-  const { data: ev } = useSWR(`/api/bandar/stocks/${ticker}/event-study?horizons=1,3,5,10`, fetcher);
+  const scanUrl =
+    "/api/bandar/validation/broker-scan?ticker=" + ticker + "&horizon=" + horizon + "&min_events=5";
+  const evUrl = "/api/bandar/stocks/" + ticker + "/event-study?horizons=1,3,5,10";
+
+  const { data: scan } = useSWR(scanUrl, fetcher);
+  const { data: ev } = useSWR(evUrl, fetcher);
+
   const rows = scan?.data ?? [];
   const evRows = ev?.data ?? [];
 
@@ -16,12 +21,20 @@ export default function ValidationTab({ ticker, horizon }: { ticker: string; hor
         <div className="text-[0.78rem] font-semibold text-[var(--strong)] mb-2">
           Broker Alpha Scan (t-test satu sisi) — horizon {horizon}d
         </div>
-        {rows.length === 0 ? <p className="text-[var(--muted)] text-sm">Belum ada sampel.</p> : (
+        {rows.length === 0 ? (
+          <p className="text-[var(--muted)] text-sm">Belum ada sampel.</p>
+        ) : (
           <table className="w-full text-[0.75rem]">
-            <thead><tr className="text-left text-[var(--muted)] border-b border-[var(--line)]">
-              <th className="py-1.5">Broker</th><th>Events</th><th>Win Rate</th>
-              <th>Mean Fwd Ret</th><th>p (1-sisi)</th><th>Signifikan</th>
-            </tr></thead>
+            <thead>
+              <tr className="text-left text-[var(--muted)] border-b border-[var(--line)]">
+                <th className="py-1.5">Broker</th>
+                <th>Events</th>
+                <th>Win Rate</th>
+                <th>Mean Fwd Ret</th>
+                <th>p (1-sisi)</th>
+                <th>Signifikan</th>
+              </tr>
+            </thead>
             <tbody>
               {rows.map((r: any, i: number) => (
                 <tr key={i} className="border-b border-[var(--line)]/50">
@@ -44,18 +57,25 @@ export default function ValidationTab({ ticker, horizon }: { ticker: string; hor
         <div className="text-[0.78rem] font-semibold text-[var(--strong)] mb-2">
           Event Study — Return setelah sinyal akumulasi
         </div>
-        {evRows.length === 0 ? <p className="text-[var(--muted)] text-sm">Belum ada event.</p> : (
+        {evRows.length === 0 ? (
+          <p className="text-[var(--muted)] text-sm">Belum ada event.</p>
+        ) : (
           <table className="w-full text-[0.75rem]">
-            <thead><tr className="text-left text-[var(--muted)] border-b border-[var(--line)]">
-              <th className="py-1.5">Tanggal</th>
-              <th>+1d</th><th>+3d</th><th>+5d</th><th>+10d</th>
-            </tr></thead>
+            <thead>
+              <tr className="text-left text-[var(--muted)] border-b border-[var(--line)]">
+                <th className="py-1.5">Tanggal</th>
+                <th>+1d</th>
+                <th>+3d</th>
+                <th>+5d</th>
+                <th>+10d</th>
+              </tr>
+            </thead>
             <tbody>
               {evRows.map((r: any, i: number) => (
                 <tr key={i} className="border-b border-[var(--line)]/50">
                   <td className="py-1.5">{String(r.date ?? r.signal_date ?? "").slice(0, 10)}</td>
                   {["1", "3", "5", "10"].map((h) => {
-                    const v = r[`fwd_return_${h}d`];
+                    const v = r["fwd_return_" + h + "d"];
                     return (
                       <td key={h} className={v >= 0 ? "text-[var(--green)]" : "text-[var(--red)]"}>
                         {v == null ? "-" : fmtPct(v)}
