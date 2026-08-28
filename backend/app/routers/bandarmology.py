@@ -268,7 +268,9 @@ def raw_tables(ticker: str, window: int = 30):
         d["date"] = pd.to_datetime(d["date"])
         w = d[(d["date"] >= start) & (d["date"] <= end)].copy()
         w["date"] = w["date"].astype(str)
-        return w.where(pd.notna(w), None).to_dict("records")
+        # Ubah ke object dulu agar None benar-benar bisa menggantikan NaN
+        w = w.astype(object).where(pd.notna(w), None)
+        return w.to_dict("records")
 
     return _clean({"flow": trim(flow), "activity": trim(act)})
 
