@@ -159,7 +159,6 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
     })
 
 
-
 # ══════════════════════════════════════════════════════════
 # Tab Analisis
 # ══════════════════════════════════════════════════════════
@@ -181,7 +180,7 @@ def smart_flow(ticker: str, window: int = 30):
     daily = smart.groupby("date")["net_value"].sum().reset_index(name="smart_net").sort_values("date")
     daily["cumulative_net"] = daily["smart_net"].cumsum()
     daily["date"] = daily["date"].astype(str)
-    return {"data": daily.to_dict("records")}
+    return {"data": _clean(daily.to_dict("records"))}
 
 
 @router.get("/stocks/{ticker}/broker-compare")
@@ -215,11 +214,11 @@ def causality(ticker: str):
     f = analysis.causality_foreign_vs_price(ticker, max_lags=5)
     part = analysis.causality_by_participant(ticker, max_lags=5)
     broker = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
-    return {
-        "foreign": f if f is not None else None,
+    return _clean({
+        "foreign": f,
         "participants": part.to_dict("records") if part is not None and not part.empty else [],
         "brokers": broker.to_dict("records") if broker is not None and not broker.empty else [],
-    }
+    })
 
 
 @router.get("/validation/broker-scan")
@@ -229,7 +228,7 @@ def validation(ticker: str, horizon: int = 10, min_events: int = 5, min_net_b: f
         [ticker], horizon=horizon, min_events=min_events,
         min_net_value=min_net_b * 1e9, group_by=("ticker", "broker_code"),
     )
-    return {"data": df.to_dict("records")}
+    return {"data": _clean(df.to_dict("records")) if not df.empty else []}
 
 
 @router.get("/stocks/{ticker}/event-study")
@@ -241,7 +240,7 @@ def event_study(ticker: str, horizons: str = "1,3,5,10", lookback_days: int = 20
         signals={"AKUMULASI_KUAT", "AKUMULASI", "STRONG_ACCUMULATION",
                  "ACCUMULATION", "NET_BUY"},
     )
-    return {"data": table.to_dict("records") if not table.empty else []}
+    return {"data": _clean(table.to_dict("records")) if not table.empty else []}
 
 
 @router.get("/screener")
@@ -251,7 +250,7 @@ def screener(universe_mode: str = "watchlist", horizon: int = 10):
         tickers, horizon=horizon, min_events=5, min_net_value=0,
         group_by=("ticker", "broker_code"),
     )
-    return {"data": scan.to_dict("records")}
+    return {"data": _clean(scan.to_dict("records")) if not scan.empty else []}
 
 
 @router.get("/stocks/{ticker}/raw")
@@ -265,39 +264,32 @@ def raw_tables(ticker: str, window: int = 30):
     def trim(df):
         if df.empty:
             return []
-        w = df[(df["date"] >= start) & (df["date"] <= end)]
-        w = w.copy()
+        d = df.copy()
+        d["date"] = pd.to_datetime(d["date"])
+        w = d[(d["date"] >= start) & (d["date"] <= end)].copy()
         w["date"] = w["date"].astype(str)
-        return w.to_dict("records")
+        return w.where(pd.notna(w), None).to_dict("records")
 
-    return {"flow": trim(flow), "activity": trim(act)}
-@router.get("/stocks/{ticker}/smart-flow")
-def smart_flow(ticker: str, lookback_days: int = 30):
-    df = analysis.smart_money_daily_flow(ticker.upper(), lookback_days=lookback_days)
-    if df is None or df.empty:
-        return {"data": []}
-    df = df.copy()
-    df["date"] = df["date"].astype(str)
-    return {"data": df.to_dict("records")}
+    return _clean({"flow": trim(flow), "activity": trim(act)})
 
 
 @router.get("/stocks/{ticker}/broker-profiles")
 def broker_profiles(ticker: str, lookback_days: int = 30):
     df = analysis.broker_profile_flow_table(ticker.upper(), lookback_days=lookback_days)
-    return {"data": df.to_dict("records") if df is not None and not df.empty else []}
+    return {"data": _clean(df.to_dict("records")) if df is not None and not df.empty else []}
 
 
 @router.get("/stocks/{ticker}/price-performance")
 def price_performance(ticker: str):
     df = analysis.price_performance_table(ticker.upper())
-    return {"data": df.to_dict("records") if df is not None and not df.empty else []}
+    return {"data": _clean(df.to_dict("records")) if df is not None and not df.empty else []}
 
 
 @router.get("/stocks/{ticker}/broker-distribution")
 def broker_distribution(ticker: str, trade_date: str | None = None, top_n: int = 12):
     ts = pd.Timestamp(trade_date) if trade_date else None
     df = analysis.broker_distribution_table(ticker.upper(), trade_date=ts, top_n=top_n)
-    return {"data": df.to_dict("records") if df is not None and not df.empty else []}
+    return {"data": _clean(df.to_dict("records")) if df is not None and not df.empty else []}
 
 
 # ══════════════════════════════════════════════════════════
