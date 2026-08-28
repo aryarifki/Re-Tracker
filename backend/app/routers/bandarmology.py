@@ -611,6 +611,46 @@ def _profile_flow_from_activity(activity):
             .to_dict("records"),
         })
     return pd.DataFrame(rows)
+def _profile_broker_detail_table(activity, profile_key=None):
+    if activity.empty:
+        return []
+    df = activity.copy()
+    df["profile"] = df["broker_code"].map(analysis.broker_profile_of)
+    if profile_key:
+        df = df[df["profile"] == profile_key]
+    if df.empty:
+        return []
+    grouped = (
+        df.groupby(["profile", "broker_code", "participant_type"], dropna=False)
+        .agg(
+            buy=("buy_value", "sum"),
+            sell=("sell_value", "sum"),
+            net=("net_value", "sum"),
+            freq=("frequency", "sum"),
+            days=("date", "nunique"),
+        )
+        .reset_index()
+    )
+    grouped["profile_label"] = grouped["profile"].map(lambda key: PROFILE_META.get(key, (key, ""))[0])
+    grouped["type_label"] = grouped["participant_type"].map(_participant_label)
+    grouped["avg_value_tx"] = grouped.apply(
+        lambda r: abs(float(r["net"] or 0)) / max(float(r["freq"] or 0), 1), axis=1
+    )
+    grouped = grouped.sort_values(["profile", "net"], ascending=[True, False])
+    rows = []
+    for _, row in grouped.iterrows():
+        rows.append({
+            "profile": str(row["profile_label"]),
+            "broker": str(row["broker_code"]),
+            "type": str(row["type_label"]),
+            "buy": float(row["buy"]),
+            "sell": float(row["sell"]),
+            "net": float(row["net"]),
+            "freq": float(row["freq"]),
+            "days": int(row["days"]),
+            "avg_value_tx": float(row["avg_value_tx"]),
+        })
+    return rows
 
 
 def _sparkline_values(activity, broker_code, end_ts, days=5):
