@@ -1186,6 +1186,19 @@ def broker_flow_detail(
                 "freq": float(row["freq"]),
             })
         detail_rows = sorted(detail_rows, key=lambda x: abs(x["net"]), reverse=True)
+    profile_df = _profile_flow_from_activity(activity_window)
+    profile_rows = []
+    if not profile_df.empty:
+        for _, row in profile_df.iterrows():
+            profile_rows.append({
+                "profile": row["profile"],
+                "label": row["label"],
+                "description": row["description"],
+                "net": float(row["net"]),
+                "top_brokers": row["top_brokers"],
+            })
+
+    profile_detail_rows = _profile_broker_detail_table(activity_window)
 
     result = _clean_detail({
         "ticker": ticker,
@@ -1198,6 +1211,8 @@ def broker_flow_detail(
         "compare_chart": compare_data,
         "distribution": dist_data,
         "summary": summary,
+        "profile_flow": profile_rows,
+        "profile_broker_detail": profile_detail_rows,
         "detail_rows": detail_rows,
     })
 
