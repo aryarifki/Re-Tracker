@@ -11,9 +11,7 @@ load_dotenv()
 
 class Settings:
     DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg2://postgres:postgres@localhost:5432/bandarmology",
-    )
+        "DATABASE_URL", "postgresql+psycopg2://adryan:adryan@localhost:5432/bandarmology")
     # Frontend Next.js origins allowed to call this API
     CORS_ORIGINS: list[str] = [
         o.strip()
