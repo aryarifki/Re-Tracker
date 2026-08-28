@@ -44,19 +44,10 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
   const ticker = raw.toUpperCase();
   const [windowDays, setWindowDays] = useState(20);
 
-  const { data: metrics, error } = useSWR(
-    `/api/bandar/stocks/ticker/metrics?window={ticker}/metrics?window=ticker/metrics?window={windowDays}`,
-    fetcher
-  );
+  const metricsUrl =
+    "/api/bandar/stocks/" + ticker + "/metrics?window=" + windowDays;
 
-  // ===== DEBUG: lihat mentahan respons di layar =====
-  let debugText = "null";
-  try {
-    debugText = metrics ? JSON.stringify(metrics).slice(0, 400) : "null";
-  } catch {
-    debugText = "[unserializable]";
-  }
-  // =================================================
+  const { data: metrics, error } = useSWR(metricsUrl, fetcher);
 
   const cv = metrics?.conviction;
   const hasData = typeof cv?.score === "number";
@@ -67,15 +58,18 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
   const alerts = buildAlerts(metrics);
 
   const verdict = cv
-    ? `Sinyal terakhir fmtSignal(metrics?.signal)pada{fmtSignal(metrics?.signal)} padafmtSignal(metrics?.signal)pada{metrics?.analysis_date ?? "-"}. ` +
-      `Conviction ${cv.score}/100 ` +
-      `(kausalitas cv.components?.causality??"−",sinyal{cv.components?.causality ?? "-"}, sinyalcv.components?.causality??"−",sinyal{cv.components?.signal ?? "-"}, ` +
-      `asing cv.components?.foreign??"−",broker{cv.components?.foreign ?? "-"}, brokercv.components?.foreign??"−",broker{cv.components?.broker ?? "-"}). ` +
-      `${cv.broker_note ?? ""}.`
+    ? "Sinyal terakhir " + fmtSignal(metrics?.signal) +
+      " pada " + (metrics?.analysis_date ?? "-") + ". " +
+      "Conviction " + cv.score + "/100 " +
+      "(kausalitas " + (cv.components?.causality ?? "-") +
+      ", sinyal " + (cv.components?.signal ?? "-") +
+      ", asing " + (cv.components?.foreign ?? "-") +
+      ", broker " + (cv.components?.broker ?? "-") + "). " +
+      (cv.broker_note ?? "") + "."
     : metrics === null
       ? "Gagal memuat — pastikan backend berjalan dan proxy/rewrites aktif."
       : metrics
-        ? `Respons tidak dikenali: ${debugText.slice(0, 120)}`
+        ? "Data belum tersedia untuk ticker ini."
         : "Memuat…";
 
   return (
@@ -98,11 +92,12 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
             <button
               key={d}
               onClick={() => setWindowDays(d)}
-              className={`px-2.5 py-1 rounded-md border font-semibold transition-colors ${
-                windowDays === d
+              className={
+                "px-2.5 py-1 rounded-md border font-semibold transition-colors " +
+                (windowDays === d
                   ? "border-[var(--blue)] text-[var(--blue)] bg-[var(--blue)]/10"
-                  : "border-[var(--line)] text-[var(--muted)] hover:text-[var(--text)]"
-              }`}
+                  : "border-[var(--line)] text-[var(--muted)] hover:text-[var(--text)]")
+              }
             >
               {d}d
             </button>
@@ -110,20 +105,14 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
         </div>
       </div>
 
-      {/* DEBUG BOX (merah) — HAPUS SETELAH MASALAH BERES */}
-      <pre className="mb-2 p-2 text-[0.65rem] leading-snug text-red-400 overflow-x-auto border border-red-900 bg-red-950/30 rounded">
-        SWR error: {error ? String(error) : "none"}{"\n"}
-        metrics: {debugText}
-      </pre>
-
       {/* 6 METRIC CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
         <MetricCard
           label="Conviction Score"
-          value={hasData ? `${cv?.score}/100` : "…"}
+          value={hasData ? cv?.score + "/100" : "…"}
           note="weighted model"
           tone={tone}
-          title={`p=cv?.pvalue??"n/a";{cv?.p_value ?? "n/a"};cv?.pv​alue??"n/a";{cv?.broker_note ?? ""}`}
+          title={"p=" + (cv?.p_value ?? "n/a") + "; " + (cv?.broker_note ?? "")}
         />
         <MetricCard
           label="Signal"
