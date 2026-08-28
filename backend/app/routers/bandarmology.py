@@ -673,7 +673,7 @@ def ticker_detail(
     min_net_buy_b: float = 0.0,
 ):
     import time as _time
-    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(horizon)
+    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(broker_codes) + "|" + str(flow_mode) + "|" + str(horizon)
     now = _time.time()
     cached = _DETAIL_CACHE["data"].get(cache_key)
     if cached is not None and (now - _DETAIL_CACHE["ts"]) < 300:
@@ -1011,7 +1011,7 @@ def broker_flow_detail(
     flow_mode: str = "Cumulative",
 ):
     import time as _time
-    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days)
+    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(broker_codes) + "|" + str(flow_mode)
     now = _time.time()
     cached = _BROKERFLOW_CACHE["data"].get(cache_key)
     if cached is not None and (now - _BROKERFLOW_CACHE["ts"]) < 300:
