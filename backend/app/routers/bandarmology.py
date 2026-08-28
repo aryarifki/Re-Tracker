@@ -596,6 +596,14 @@ def _profile_flow_from_activity(activity):
         .reset_index()
     )
     rows = []
+    PROFILE_META = {
+        "smart_foreign": ("Foreign Smart Money", "Directional foreign institutions"),
+        "local_institutional": ("Local Institutions", "Local institution-like accounts"),
+        "market_maker": ("Market Makers", "Active on both sides; net position matters"),
+        "bandar_gorengan": ("Speculative Operators", "Speculative operator profile"),
+        "retail": ("Retail-Dominant", "Retail-heavy platforms"),
+        "lainnya": ("Other Brokers", "Outside defined behavioral profiles"),
+    }
     for profile, (label, desc) in PROFILE_META.items():
         members = broker_rows[broker_rows["profile"] == profile].copy()
         if members.empty:
@@ -611,6 +619,8 @@ def _profile_flow_from_activity(activity):
             .to_dict("records"),
         })
     return pd.DataFrame(rows)
+
+
 def _profile_broker_detail_table(activity, profile_key=None):
     if activity.empty:
         return []
@@ -631,8 +641,16 @@ def _profile_broker_detail_table(activity, profile_key=None):
         )
         .reset_index()
     )
+    PROFILE_META = {
+        "smart_foreign": ("Foreign Smart Money", ""),
+        "local_institutional": ("Local Institutions", ""),
+        "market_maker": ("Market Makers", ""),
+        "bandar_gorengan": ("Speculative Operators", ""),
+        "retail": ("Retail-Dominant", ""),
+        "lainnya": ("Other Brokers", ""),
+    }
     grouped["profile_label"] = grouped["profile"].map(lambda key: PROFILE_META.get(key, (key, ""))[0])
-    grouped["type_label"] = grouped["participant_type"].map(_participant_label)
+    grouped["type_label"] = grouped["participant_type"].map(lambda v: {"Asing": "FOREIGN", "Lokal": "LOCAL", "Pemerintah": "GOV"}.get(str(v), str(v or "-")))
     grouped["avg_value_tx"] = grouped.apply(
         lambda r: abs(float(r["net"] or 0)) / max(float(r["freq"] or 0), 1), axis=1
     )
@@ -641,6 +659,7 @@ def _profile_broker_detail_table(activity, profile_key=None):
     for _, row in grouped.iterrows():
         rows.append({
             "profile": str(row["profile_label"]),
+            "profile_key": str(row["profile"]),
             "broker": str(row["broker_code"]),
             "type": str(row["type_label"]),
             "buy": float(row["buy"]),
@@ -652,6 +671,86 @@ def _profile_broker_detail_table(activity, profile_key=None):
         })
     return rows
 
+
+def _broker_distribution_data_range(activity, dist_start, dist_end):
+    dist = activity[(activity["date"] >= dist_start) & (activity["date"] <= dist_end)].copy()
+    if dist.empty:
+        return {"buyers": [], "sellers": [], "edges": []}
+    dist = (
+        dist.groupby(["broker_code", "participant_type"], dropna=False)
+        .agg(
+            buy_value=("buy_value", "sum"),
+            sell_value=("sell_value", "sum"),
+            net_value=("net_value", "sum"),
+            frequency=("frequency", "sum"),
+            buy_lot=("buy_lot", "sum"),
+            sell_lot=("sell_lot", "sum"),
+            buy_avg_price=("buy_avg_price", "mean"),
+            sell_avg_price=("sell_avg_price", "mean"),
+        )
+        .reset_index()
+    )
+    buyers = dist[dist["net_value"] > 0].copy().sort_values("net_value", ascending=False)
+    sellers = dist[dist["net_value"] < 0].copy().sort_values("net_value", ascending=True)
+
+    buyer_rows = buyers.head(8).reset_index(drop=True)
+    seller_rows = sellers.head(8).reset_index(drop=True)
+    buyer_rows["remaining"] = buyer_rows["net_value"].astype(float)
+    seller_rows["remaining"] = seller_rows["net_value"].abs().astype(float)
+    edges = []
+    seller_idx = 0
+    for buyer_i in range(len(buyer_rows)):
+        buyer_left = float(buyer_rows.loc[buyer_i, "remaining"])
+        while buyer_left > 1e-9 and seller_idx < len(seller_rows):
+            seller_left = float(seller_rows.loc[seller_idx, "remaining"])
+            if seller_left <= 1e-9:
+                seller_idx += 1
+                continue
+            matched = min(buyer_left, seller_left)
+            edges.append({
+                "buyer_code": str(buyer_rows.loc[buyer_i, "broker_code"]),
+                "buyer_type": {"Asing": "FOREIGN", "Lokal": "LOCAL", "Pemerintah": "GOV"}.get(str(buyer_rows.loc[buyer_i, "participant_type"]), str(buyer_rows.loc[buyer_i, "participant_type"] or "-")),
+                "seller_code": str(seller_rows.loc[seller_idx, "broker_code"]),
+                "seller_type": {"Asing": "FOREIGN", "Lokal": "LOCAL", "Pemerintah": "GOV"}.get(str(seller_rows.loc[seller_idx, "participant_type"]), str(seller_rows.loc[seller_idx, "participant_type"] or "-")),
+                "matched_value": float(matched),
+            })
+            buyer_left -= matched
+            seller_rows.loc[seller_idx, "remaining"] = seller_left - matched
+            if seller_rows.loc[seller_idx, "remaining"] <= 1e-9:
+                seller_idx += 1
+        buyer_rows.loc[buyer_i, "remaining"] = buyer_left
+
+    return {
+        "buyers": [
+            {
+                "broker": str(row["broker_code"]),
+                "type": {"Asing": "FOREIGN", "Lokal": "LOCAL", "Pemerintah": "GOV"}.get(str(row["participant_type"]), str(row["participant_type"] or "-")),
+                "buy_value": float(row["buy_value"]),
+                "sell_value": float(row["sell_value"]),
+                "net_value": float(row["net_value"]),
+                "freq": float(row["frequency"]),
+                "buy_lot": float(row["buy_lot"]) if pd.notna(row["buy_lot"]) else None,
+                "buy_avg": float(row["buy_avg_price"]) if pd.notna(row["buy_avg_price"]) else None,
+            }
+            for _, row in buyers.head(10).iterrows()
+        ],
+        "sellers": [
+            {
+                "broker": str(row["broker_code"]),
+                "type": {"Asing": "FOREIGN", "Lokal": "LOCAL", "Pemerintah": "GOV"}.get(str(row["participant_type"]), str(row["participant_type"] or "-")),
+                "buy_value": float(row["buy_value"]),
+                "sell_value": float(row["sell_value"]),
+                "net_value": float(row["net_value"]),
+                "freq": float(row["frequency"]),
+                "sell_lot": float(row["sell_lot"]) if pd.notna(row["sell_lot"]) else None,
+                "sell_avg": float(row["sell_avg_price"]) if pd.notna(row["sell_avg_price"]) else None,
+            }
+            for _, row in sellers.head(10).iterrows()
+        ],
+        "edges": edges,
+        "dist_start": str(dist_start.date()),
+        "dist_end": str(dist_end.date()),
+    }
 
 def _sparkline_values(activity, broker_code, end_ts, days=5):
     sub = activity[(activity["broker_code"] == broker_code) & (activity["date"] <= end_ts)].sort_values("date").tail(days)
