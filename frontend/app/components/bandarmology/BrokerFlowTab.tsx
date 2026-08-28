@@ -15,84 +15,92 @@ export default function BrokerFlowTab({ ticker, windowDays }: { ticker: string; 
   const { data: dist } = useSWR(distUrl, fetcher);
 
   const rows = cmp?.data ?? [];
-  const brokers = rows.length ? Object.keys(rows[0]).filter((k: string) => k !== "date") : [];
-
+  const allBrokers = rows.length ? Object.keys(rows[0]).filter((k: string) => k !== "date") : [];
   const lastRow = rows[rows.length - 1] ?? {};
-  const sankeyNodes = [
-    ...brokers.map((b: string) => ({ name: b })),
-    { name: "Net Buy" },
-    { name: "Net Sell" },
-  ];
-  const sankeyLinks = brokers
-    .filter((b: string) => lastRow[b] != null && lastRow[b] !== 0)
-    .map((b: string) => ({
-      source: b,
-      target: lastRow[b] > 0 ? "Net Buy" : "Net Sell",
-      value: Math.abs(lastRow[b]),
-    }));
+
+  const topBrokers = allBrokers
+    .map((b: string) => ({ code: b, net: Number(lastRow[b] ?? 0) }))
+    .filter((x) => x.net !== 0)
+    .sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
+    .slice(0, 8);
 
   return (
     <div className="space-y-3">
+      {/* LINE CHART — TOP 8 SAJA */}
       <div className="border border-[var(--line)] rounded-lg bg-[var(--panel)] p-3">
         <div className="text-[0.78rem] font-semibold text-[var(--strong)] mb-2">
-          Broker Net Flow (Cumulative) — Top Brokers
+          Broker Net Flow (Cumulative) — Top 8
         </div>
-        {rows.length === 0 ? (
+        {rows.length === 0 || topBrokers.length === 0 ? (
           <p className="text-[var(--muted)] text-sm">Belum ada data.</p>
         ) : (
           <ChartBase
             option={{
               tooltip: { trigger: "axis", valueFormatter: (v: number) => fmtRp(v) },
-              legend: { type: "scroll", textStyle: { color: "#8a8a8a", fontSize: 10 }, top: 0 },
+              legend: { textStyle: { color: "#8a8a8a", fontSize: 10 }, top: 0 },
               grid: { left: 70, right: 20, top: 40, bottom: 25 },
-              xAxis: { type: "category", data: rows.map((r: any) => r.date), ...axisCommon },
+              xAxis: {
+                type: "category",
+                data: rows.map((r: any) => String(r.date).slice(5, 10)),
+                ...axisCommon,
+              },
               yAxis: {
                 type: "value",
                 ...axisCommon,
                 axisLabel: { ...axisCommon.axisLabel, formatter: (v: number) => fmtRp(v) },
               },
-              series: brokers.map((b: string, i: number) => ({
-                name: b,
+              series: topBrokers.map((b, i) => ({
+                name: b.code,
                 type: "line",
                 symbol: "none",
                 lineStyle: { width: 1.5, color: PALETTE[i % PALETTE.length] },
                 itemStyle: { color: PALETTE[i % PALETTE.length] },
-                data: rows.map((r: any) => r[b]),
+                data: rows.map((r: any) => r[b.code]),
               })),
             }}
-            height={340}
+            height={300}
           />
         )}
       </div>
 
-      {sankeyLinks.length > 0 && (
-        <div className="border border-[var(--line)] rounded-lg bg-[var(--panel)] p-3">
-          <div className="text-[0.78rem] font-semibold text-[var(--strong)] mb-2">
-            Broker Distribution Map (Sankey)
-          </div>
+      {/* POSISI BROKER HARI TERAKHIR — PENGGANTI SANKEY */}
+      <div className="border border-[var(--line)] rounded-lg bg-[var(--panel)] p-3">
+        <div className="text-[0.78rem] font-semibold text-[var(--strong)] mb-2">
+          Posisi Broker Hari Terakhir (Top 8)
+        </div>
+        {topBrokers.length === 0 ? (
+          <p className="text-[var(--muted)] text-sm">Belum ada data.</p>
+        ) : (
           <ChartBase
             option={{
               tooltip: { trigger: "item", valueFormatter: (v: number) => fmtRp(v) },
+              grid: { left: 55, right: 40, top: 10, bottom: 25 },
+              xAxis: {
+                type: "value",
+                ...axisCommon,
+                axisLabel: { ...axisCommon.axisLabel, formatter: (v: number) => fmtRp(v) },
+              },
+              yAxis: {
+                type: "category",
+                ...axisCommon,
+                data: topBrokers.map((x) => x.code).reverse(),
+              },
               series: [
                 {
-                  type: "sankey",
-                  layout: "none",
-                  emphasis: { focus: "adjacency" },
-                  nodeAlign: "justify",
-                  data: sankeyNodes,
-                  links: sankeyLinks,
-                  label: { color: "#d4d4d4", fontSize: 10 },
-                  lineStyle: { color: "gradient", curveness: 0.5, opacity: 0.35 },
-                  itemStyle: { borderColor: "#222" },
+                  type: "bar",
+                  barMaxWidth: 16,
+                  data: topBrokers.map((x) => x.net).reverse(),
+                  itemStyle: { color: (p: any) => (p.value >= 0 ? "#10b981" : "#f43f5e") },
                 },
               ],
             }}
-            height={420}
+            height={240}
           />
-        </div>
-      )}
+        )}
+      </div>
 
-      {dist?.data && (
+      {/* TABEL DISTRIBUSI */}
+      {dist?.data && dist.data.length > 0 && (
         <div className="border border-[var(--line)] rounded-lg bg-[var(--panel)] p-3 overflow-x-auto">
           <div className="text-[0.78rem] font-semibold text-[var(--strong)] mb-2">
             Broker Distribution (Top 12)
