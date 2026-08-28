@@ -49,7 +49,15 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
     fetcher
   );
 
-  // Guard anti-crash: data dianggap valid hanya jika conviction.score angka
+  // ===== DEBUG: lihat mentahan respons di layar =====
+  let debugText = "null";
+  try {
+    debugText = metrics ? JSON.stringify(metrics).slice(0, 400) : "null";
+  } catch {
+    debugText = "[unserializable]";
+  }
+  // =================================================
+
   const cv = metrics?.conviction;
   const hasData = typeof cv?.score === "number";
 
@@ -67,12 +75,8 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
     : metrics === null
       ? "Gagal memuat — pastikan backend berjalan dan proxy/rewrites aktif."
       : metrics
-        ? "Data belum tersedia untuk ticker ini. Jalankan pipeline atau coba ticker lain."
+        ? `Respons tidak dikenali: ${debugText.slice(0, 120)}`
         : "Memuat…";
-      {/* DEBUG — hapus setelah beres */}
-      <pre className="mt-2 p-2 text-[0.6rem] text-gray-500 overflow-x-auto border border-[var(--line)] rounded">
-        {JSON.stringify(metrics)?.slice(0, 300) ?? "null"}
-      </pre>
 
   return (
     <div className="min-h-screen bg-black text-[var(--text)] p-3 max-w-[1400px] mx-auto fade-in">
@@ -105,6 +109,12 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
           ))}
         </div>
       </div>
+
+      {/* DEBUG BOX (merah) — HAPUS SETELAH MASALAH BERES */}
+      <pre className="mb-2 p-2 text-[0.65rem] leading-snug text-red-400 overflow-x-auto border border-red-900 bg-red-950/30 rounded">
+        SWR error: {error ? String(error) : "none"}{"\n"}
+        metrics: {debugText}
+      </pre>
 
       {/* 6 METRIC CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
@@ -157,7 +167,7 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
         <div
           key={a}
           className="mt-2 px-3 py-2 text-[0.82rem] rounded-lg border border-amber-700/40 bg-amber-500/10 text-amber-400"
- >
+        >
           {a}
         </div>
       ))}
