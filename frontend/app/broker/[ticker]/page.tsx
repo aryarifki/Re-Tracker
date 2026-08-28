@@ -1,5 +1,6 @@
 "use client";
 import { use } from "react";
+import { use, useState } from "react";
 import useSWR from "swr";
 import MetricCard from "@/app/components/MetricCard";
 import Tabs from "@/app/components/ui/Tabs";
@@ -40,6 +41,7 @@ function buildAlerts(m: any): string[] {
 export default function BrokerPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker: raw } = use(params);
   const ticker = raw.toUpperCase();
+  const [windowDays, setWindowDays] = useState(20);
 
   const { data: metrics } = useSWR(`/api/bandar/stocks/ticker/metrics?window={ticker}/metrics?window=ticker/metrics?window={windowDays}`, fetcher);
 
