@@ -50,12 +50,13 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
   const tone = score < 40 ? "negative" : score <= 70 ? "warning" : "positive";
   const alerts = buildAlerts(metrics);
 
-  const verdict = metrics
+  const cv = metrics?.conviction;
+  const verdict = cv
     ? `Sinyal terakhir fmtSignal(metrics.signal)pada{fmtSignal(metrics.signal)} padafmtSignal(metrics.signal)pada{metrics.analysis_date}. ` +
-      `Conviction ${metrics.conviction.score}/100 ` +
-      `(kausalitas metrics.conviction.components.causality,sinyal{metrics.conviction.components.causality}, sinyalmetrics.conviction.components.causality,sinyal{metrics.conviction.components.signal}, ` +
-      `asing metrics.conviction.components.foreign,broker{metrics.conviction.components.foreign}, brokermetrics.conviction.components.foreign,broker{metrics.conviction.components.broker}). ` +
-      `${metrics.conviction.broker_note}.`
+      `Conviction ${cv.score}/100 ` +
+      `(kausalitas cv.components?.causality??"−",sinyal{cv.components?.causality ?? "-"}, sinyalcv.components?.causality??"−",sinyal{cv.components?.signal ?? "-"}, ` +
+      `asing cv.components?.foreign??"−",broker{cv.components?.foreign ?? "-"}, brokercv.components?.foreign??"−",broker{cv.components?.broker ?? "-"}). ` +
+      `${cv.broker_note ?? ""}.`
     : "Memuat…";
 
   return (
