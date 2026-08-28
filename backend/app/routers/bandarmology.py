@@ -316,3 +316,57 @@ def backfill(tickers: str = "BBCA", start: str = "2024-01-01", end: str | None =
 
     threading.Thread(target=_job, daemon=True).start()
     return {"status": "started", "tickers": tickers.split(","), "start": start}
+# ══════════════════════════════════════════════════════════
+# Daily Summary (Home mobile TradePulse)
+# ══════════════════════════════════════════════════════════
+
+@router.get("/daily-summary")
+def daily_summary(universe_mode: str = "watchlist"):
+    tickers = universe.get_universe(mode=universe_mode)
+    items = []
+    for t in tickers:
+        try:
+            price_df = storage.read_prices([t])
+            flow_df = storage.read_broker_flow([t])
+            if flow_df.empty:
+                continue
+            flow_df = flow_df.sort_values("date")
+            last = flow_df.iloc[-1]
+
+            # return 5 hari terakhir
+            ret_5d = None
+            sub = price_df[price_df["date"] <= last["date"]].sort_values("date")
+            if len(sub) > 5:
+                base = float(sub.iloc[-6]["close"])
+                if base:
+                    ret_5d = float(sub.iloc[-1]["close"]) / base - 1
+
+            # foreign net 5 hari
+            f5 = None
+            tail5 = flow_df.tail(5)
+            if "foreign_net_broker" in tail5.columns:
+                f5 = float(tail5["foreign_net_broker"].fillna(0).sum())
+
+            items.append({
+                "ticker": t,
+                "date": str(last["date"]),
+                "signal": last.get("bandar_signal"),
+                "signal_score": last.get("bandar_signal_score"),
+                "close": float(sub.iloc[-1]["close"]) if len(sub) else None,
+                "ret_5d": ret_5d,
+                "foreign_net_5d": f5,
+                "spark": [float(x) for x in sub.tail(30)["close"]],
+            })
+        except Exception:
+            continue
+
+    from collections import Counter
+    counts = Counter((i["signal"] or "NETRAL").upper() for i in items)
+    top = sorted(items, key=lambda x: (x["signal_score"] or 0), reverse=True)[:5]
+
+    return _clean({
+        "as_of": max((i["date"] for i in items), default=None),
+        "signal_counts": dict(counts),
+        "items": items,
+        "top_conviction": top,
+    })
