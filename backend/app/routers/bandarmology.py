@@ -1,3 +1,4 @@
+import numpy as np
 """Router bandarmology — membungkus fungsi paket idx_bandarmology."""
 from datetime import date
 import threading
