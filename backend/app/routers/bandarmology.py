@@ -316,34 +316,39 @@ def backfill(tickers: str = "BBCA", start: str = "2024-01-01", end: str | None =
 
     threading.Thread(target=_job, daemon=True).start()
     return {"status": "started", "tickers": tickers.split(","), "start": start}
-# ══════════════════════════════════════════════════════════
-# Daily Summary (Home mobile TradePulse)
+    # ══════════════════════════════════════════════════════════
+# Daily Summary (Home mobile) — vectorized, support universe all
 # ══════════════════════════════════════════════════════════
 
 @router.get("/daily-summary")
 def daily_summary(universe_mode: str = "watchlist"):
     tickers = universe.get_universe(mode=universe_mode)
+
+    # baca SEMUA ticker sekaligus (cepat untuk 900+ ticker)
+    price_df = storage.read_prices(tickers)
+    flow_df = storage.read_broker_flow(tickers)
+
     items = []
-    for t in tickers:
+    if flow_df.empty:
+        return _clean({"as_of": None, "signal_counts": {}, "items": [], "top_conviction": []})
+
+    flow_df = flow_df.sort_values("date")
+
+    for t, fsub in flow_df.groupby("ticker"):
         try:
-            price_df = storage.read_prices([t])
-            flow_df = storage.read_broker_flow([t])
-            if flow_df.empty:
-                continue
-            flow_df = flow_df.sort_values("date")
-            last = flow_df.iloc[-1]
+            last = fsub.iloc[-1]
 
-            # return 5 hari terakhir
+            psub = price_df[price_df["ticker"] == t] if not price_df.empty else fsub.iloc[0:0]
+            psub = psub[psub["date"] <= last["date"]].sort_values("date")
+
             ret_5d = None
-            sub = price_df[price_df["date"] <= last["date"]].sort_values("date")
-            if len(sub) > 5:
-                base = float(sub.iloc[-6]["close"])
+            if len(psub) > 5:
+                base = float(psub.iloc[-6]["close"])
                 if base:
-                    ret_5d = float(sub.iloc[-1]["close"]) / base - 1
+                    ret_5d = float(psub.iloc[-1]["close"]) / base - 1
 
-            # foreign net 5 hari
             f5 = None
-            tail5 = flow_df.tail(5)
+            tail5 = fsub.tail(5)
             if "foreign_net_broker" in tail5.columns:
                 f5 = float(tail5["foreign_net_broker"].fillna(0).sum())
 
@@ -352,10 +357,10 @@ def daily_summary(universe_mode: str = "watchlist"):
                 "date": str(last["date"]),
                 "signal": last.get("bandar_signal"),
                 "signal_score": last.get("bandar_signal_score"),
-                "close": float(sub.iloc[-1]["close"]) if len(sub) else None,
+                "close": float(psub.iloc[-1]["close"]) if len(psub) else None,
                 "ret_5d": ret_5d,
                 "foreign_net_5d": f5,
-                "spark": [float(x) for x in sub.tail(30)["close"]],
+                "spark": [float(x) for x in psub.tail(30)["close"]],
             })
         except Exception:
             continue
