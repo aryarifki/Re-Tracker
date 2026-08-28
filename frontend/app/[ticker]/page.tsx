@@ -555,6 +555,46 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           )}
         </div>
       </div>
+            {/* Broker Detail by Profile */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
+        {(data.profile_broker_detail || []).length === 0 ? (
+          <p className="text-xs text-neutral-500">No broker detail for this window.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-neutral-500 border-b border-neutral-800">
+                  <th className="text-left py-1.5 pr-2">Profile</th>
+                  <th className="text-left py-1.5 pr-2">Broker</th>
+                  <th className="text-left py-1.5 pr-2">Type</th>
+                  <th className="text-right py-1.5 pr-2">Buy</th>
+                  <th className="text-right py-1.5 pr-2">Sell</th>
+                  <th className="text-right py-1.5 pr-2">Net</th>
+                  <th className="text-right py-1.5 pr-2">Freq</th>
+                  <th className="text-right py-1.5 pr-2">Days</th>
+                  <th className="text-right py-1.5">Avg/Tx</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.profile_broker_detail || []).map((row: any, i: number) => (
+                  <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                    <td className="py-1.5 pr-2 text-neutral-300 font-semibold">{row.profile}</td>
+                    <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
+                    <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.freq.toLocaleString("id-ID")}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.days}</td>
+                    <td className="py-1.5 text-right font-mono text-neutral-400">{fmtRp(row.avg_value_tx)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
