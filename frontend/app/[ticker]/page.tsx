@@ -382,7 +382,8 @@ export default function TickerPage() {
           {/* Tab Content */}
           <div className="pb-8">
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
-            {activeTab !== "Overview" && (
+            {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
+            {activeTab !== "Overview" && activeTab !== "Broker Flow" && (
               <div className="text-neutral-400 text-sm">{activeTab} tab — coming in next phase</div>
             )}
           </div>
