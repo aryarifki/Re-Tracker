@@ -1,5 +1,5 @@
 "use client";
-import { use, useState } from "react";
+import { use, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import MetricCard from "@/app/components/MetricCard";
 import Tabs from "@/app/components/ui/Tabs";
@@ -11,9 +11,12 @@ import ValidationTab from "@/app/components/bandarmology/ValidationTab";
 import ScreenerTab from "@/app/components/bandarmology/ScreenerTab";
 import RawTablesTab from "@/app/components/bandarmology/RawTablesTab";
 
-const fetcher = (u: string) => fetch(u).then((r) => r.json());
+const fetcher = (u: string) =>
+  fetch(u)
+    .then((r) => r.json())
+    .catch(() => null);
 
-function Chip({ children }: { children: React.ReactNode }) {
+function Chip({ children }: { children: ReactNode }) {
   return (
     <span className="px-2 py-0.5 rounded-full border border-[var(--line)] bg-[var(--panel2)] text-[var(--muted)]">
       {children}
@@ -41,23 +44,31 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
   const ticker = raw.toUpperCase();
   const [windowDays, setWindowDays] = useState(20);
 
-  const { data: metrics } = useSWR(
+  const { data: metrics, error } = useSWR(
     `/api/bandar/stocks/ticker/metrics?window={ticker}/metrics?window=ticker/metrics?window={windowDays}`,
     fetcher
   );
 
-  const score = metrics?.conviction?.score ?? 0;
-  const tone = score < 40 ? "negative" : score <= 70 ? "warning" : "positive";
+  // Guard anti-crash: data dianggap valid hanya jika conviction.score angka
+  const cv = metrics?.conviction;
+  const hasData = typeof cv?.score === "number";
+
+  const score = hasData ? (cv?.score ?? 0) : 0;
+  const tone: "positive" | "negative" | "warning" | "neutral" =
+    score < 40 ? "negative" : score <= 70 ? "warning" : "positive";
   const alerts = buildAlerts(metrics);
 
-  const cv = metrics?.conviction;
   const verdict = cv
-    ? `Sinyal terakhir fmtSignal(metrics.signal)pada{fmtSignal(metrics.signal)} padafmtSignal(metrics.signal)pada{metrics.analysis_date}. ` +
+    ? `Sinyal terakhir fmtSignal(metrics?.signal)pada{fmtSignal(metrics?.signal)} padafmtSignal(metrics?.signal)pada{metrics?.analysis_date ?? "-"}. ` +
       `Conviction ${cv.score}/100 ` +
       `(kausalitas cv.components?.causality??"−",sinyal{cv.components?.causality ?? "-"}, sinyalcv.components?.causality??"−",sinyal{cv.components?.signal ?? "-"}, ` +
       `asing cv.components?.foreign??"−",broker{cv.components?.foreign ?? "-"}, brokercv.components?.foreign??"−",broker{cv.components?.broker ?? "-"}). ` +
       `${cv.broker_note ?? ""}.`
-    : "Memuat…";
+    : metrics === null
+      ? "Gagal memuat — pastikan backend berjalan dan proxy/rewrites aktif."
+      : metrics
+        ? "Data belum tersedia untuk ticker ini. Jalankan pipeline atau coba ticker lain."
+        : "Memuat…";
 
   return (
     <div className="min-h-screen bg-black text-[var(--text)] p-3 max-w-[1400px] mx-auto fade-in">
@@ -95,14 +106,14 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
         <MetricCard
           label="Conviction Score"
-          value={metrics ? `${metrics.conviction.score}/100` : "…"}
+          value={hasData ? `${cv?.score}/100` : "…"}
           note="weighted model"
-          tone={tone as never}
-          title={`p=metrics?.conviction?.pvalue??"n/a";{metrics?.conviction?.p_value ?? "n/a"};metrics?.conviction?.pv​alue??"n/a";{metrics?.conviction?.broker_note ?? ""}`}
+          tone={tone}
+          title={`p=cv?.pvalue??"n/a";{cv?.p_value ?? "n/a"};cv?.pv​alue??"n/a";{cv?.broker_note ?? ""}`}
         />
         <MetricCard
           label="Signal"
-          value={fmtSignal(metrics?.signal)}
+          value={metrics?.signal ? fmtSignal(metrics.signal) : "…"}
           tone={
             metrics?.signal?.includes("DISTRIBUTION")
               ? "negative"
@@ -142,7 +153,7 @@ export default function BrokerPage({ params }: { params: Promise<{ ticker: strin
         <div
           key={a}
           className="mt-2 px-3 py-2 text-[0.82rem] rounded-lg border border-amber-700/40 bg-amber-500/10 text-amber-400"
-        >
+ >
           {a}
         </div>
       ))}
