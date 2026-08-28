@@ -20,17 +20,11 @@ export default function HomeMobile() {
     <main className="max-w-md mx-auto p-3 space-y-4">
       {/* Hero + Ringkasan Sinyal */}
       <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
-        <h2 className="text-lg font-bold">
-          <span className="text-emerald-500">Trade</span>Pulse
-        </h2>
-        <p className="text-xs text-neutral-500">
-          Ringkasan bandarmologi {data?.as_of ? `· data s/d ${data.as_of}` : "memuat..."}
-        </p>
-
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2">
             <div className="text-emerald-400 font-bold text-lg">
-              {counts["AKUMULASI"] ?? counts["AKUMULASI_KUAT"] ?? 0}
+              {(counts["ACCUMULATION"] ?? 0) + (counts["AKUMULASI"] ?? 0) +
+               (counts["STRONG_ACCUMULATION"] ?? 0) + (counts["AKUMULASI_KUAT"] ?? 0)}
             </div>
             <div className="text-[10px] text-neutral-400">AKUMULASI</div>
           </div>
@@ -42,12 +36,13 @@ export default function HomeMobile() {
           </div>
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-2">
             <div className="text-red-400 font-bold text-lg">
-              {counts["DISTRIBUSI"] ?? counts["DISTRIBUSI_KUAT"] ?? 0}
+              {(counts["DISTRIBUTION"] ?? 0) + (counts["DISTRIBUSI"] ?? 0) +
+               (counts["STRONG_DISTRIBUTION"] ?? 0) + (counts["DISTRIBUSI_KUAT"] ?? 0)}
             </div>
             <div className="text-[10px] text-neutral-400">DISTRIBUSI</div>
           </div>
         </div>
-      </section>
+
 
       {/* Foreign Flow 5 Hari */}
       <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-3">
