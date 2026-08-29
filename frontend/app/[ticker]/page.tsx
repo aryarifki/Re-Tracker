@@ -50,6 +50,7 @@ function signalColor(score: number | null): string {
 
 import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
 import CausalityTab from "@/components/analysis/CausalityTab";
+import ValidationTab from "@/components/analysis/ValidationTab";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = ["watchlist", "idx30", "lq45", "idx80", "all"];
@@ -385,7 +386,8 @@ export default function TickerPage() {
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
             {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
-            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && (
+            {activeTab === "Validation" && <ValidationTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
+            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && (
               <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
             )}
           </div>
