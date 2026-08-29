@@ -9,21 +9,36 @@ interface CausalityProps {
   ticker: string;
   analysisDate: string;
   windowDays: number;
-  detailData?: any;
 }
 
-export default function CausalityTab({ ticker, analysisDate, windowDays, detailData }: CausalityProps) {
+export default function CausalityTab({ ticker, analysisDate, windowDays }: CausalityProps) {
+  // 1. Fetch Causality Data
   const url = "/api/bandar/causality/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays;
   const { data: causalityData, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 0 });
+
+  // 2. Fetch Detail Data MANDIRI
+  const detailUrl = "/api/bandar/detail/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays + "&horizon=10";
+  const { data: detailData } = useSWR(detailUrl, fetcher, { refreshInterval: 0 });
 
   if (isLoading) return <div className="text-neutral-300 font-medium p-4 animate-pulse">Loading causality analysis...</div>;
   if (error || !causalityData) return <div className="text-red-400 font-bold p-4">Error loading causality data.</div>;
 
   const granger = causalityData.granger_test;
+  const score = detailData?.conviction?.score ?? detailData?.conviction_score ?? detailData?.score ?? 0;
   
-  // Ambil data metrik dari page.tsx
-  const conviction = detailData?.conviction || {};
-  const score = conviction.score || 0;
+  // LOGIKA JENIUS: Jika backend tidak mereturn broker_note, kita ambil dari verdict!
+  let brokerNote = detailData?.conviction?.broker_note || detailData?.broker_note;
+  if (!brokerNote && detailData?.verdict) {
+    const v = detailData.verdict;
+    const matchBroker = v.match(/Broker ([A-Z0-9]+) is/i);
+    const matchWinRate = v.match(/win rate (\d+%)/i);
+    if (matchBroker && matchWinRate) {
+      brokerNote = matchBroker[1] + " win rate " + matchWinRate[1];
+    } else if (v.includes("not yet statistically strong")) {
+      brokerNote = "No broker validation sample";
+    }
+  }
+  brokerNote = brokerNote || "Unavailable";
 
   let scoreColor = "border-emerald-500";
   let scoreText = "text-emerald-400";
@@ -69,8 +84,8 @@ export default function CausalityTab({ ticker, analysisDate, windowDays, detailD
 
         <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-3 border-l-4 shadow-md border-slate-400">
           <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Broker Validation</h3>
-          <div className="text-base font-bold text-slate-100 truncate" title={conviction.broker_note || "Unavailable"}>
-            {conviction.broker_note || "Unavailable"}
+          <div className="text-base font-bold text-slate-100 truncate" title={brokerNote}>
+            {brokerNote}
           </div>
           <div className="text-[12px] text-neutral-300 mt-1 truncate">historical forward returns</div>
         </div>
