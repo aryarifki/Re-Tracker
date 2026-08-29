@@ -49,6 +49,7 @@ function signalColor(score: number | null): string {
 }
 
 import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
+import CausalityTab from "@/components/analysis/CausalityTab";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = ["watchlist", "idx30", "lq45", "idx80", "all"];

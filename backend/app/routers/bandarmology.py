@@ -1219,3 +1219,62 @@ def broker_flow_detail(
     _BROKERFLOW_CACHE["ts"] = now
     _BROKERFLOW_CACHE["data"][cache_key] = result
     return result
+
+@router.get("/causality/{ticker}")
+def causality_insight(ticker: str, analysis_date: str = None, window_days: int = None):
+    from idx_bandarmology import analysis
+    import pandas as pd
+
+    # 1. Foreign Granger
+    try:
+        foreign_causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
+    except Exception:
+        foreign_causality = None
+        
+    # 2. Participant Causality
+    try:
+        part_causality = analysis.causality_by_participant(ticker, max_lags=5)
+    except Exception:
+        part_causality = pd.DataFrame()
+        
+    # 3. Broker Causality
+    try:
+        broker_causality = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
+    except Exception:
+        broker_causality = pd.DataFrame()
+
+    def get_english_text(val):
+        mapping = {"Asing": "Foreign", "Lokal": "Local", "Pemerintah": "Government"}
+        return mapping.get(str(val), val)
+
+    part_list = []
+    if not part_causality.empty:
+        for _, row in part_causality.iterrows():
+            part_list.append({
+                "participant": get_english_text(row.get("participant_type", "")),
+                "lag": int(row.get("best_lag", 1)),
+                "p_value": float(row.get("p_value", 1.0)),
+                "is_significant": bool(row.get("significant", False))
+            })
+
+    broker_list = []
+    if not broker_causality.empty:
+        for _, row in broker_causality.iterrows():
+            broker_list.append({
+                "code": str(row.get("broker_code", "")),
+                "lag": int(row.get("best_lag", 1)),
+                "p_value": float(row.get("p_value", 1.0)),
+                "is_significant": bool(row.get("significant", False))
+            })
+
+    raw_response = {
+        "granger_test": {
+            "is_significant": bool(foreign_causality.get("is_significant", False)),
+            "min_p_value": float(foreign_causality.get("min_p_value", 1.0)),
+            "best_lag": int(foreign_causality.get("best_lag", 1))
+        } if foreign_causality else None,
+        "participant_causality": part_list,
+        "top_brokers": broker_list
+    }
+    
+    return _clean(raw_response)
