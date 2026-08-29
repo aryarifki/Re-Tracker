@@ -1286,7 +1286,7 @@ def validation_insight(
     window_days: int = 60,
     horizon: int = 10,
     min_events: int = 5,
-    min_net_buy: float = 0.0
+    min_net_buy: float = 0.0, universe_mode: str = "watchlist"
 ):
     from idx_bandarmology import analysis
     import pandas as pd
@@ -1373,3 +1373,98 @@ def validation_insight(
         }
     }
     return _clean(raw_response)
+
+@router.get("/validation-v2/{ticker}")
+def validation_insight_v2(
+    ticker: str,
+    analysis_date: str = None,
+    window_days: int = 60,
+    horizon: int = 10,
+    min_events: int = 5,
+    min_net_buy: float = 0.0, universe_mode: str = "watchlist"
+):
+    from idx_bandarmology import analysis
+    import pandas as pd
+
+    # 1. Broker Alpha Scan (All Watchlist + Ticker)
+    try:
+        try:
+            from idx_bandarmology.universe import get_universe
+            universe_tickers = get_universe(universe_mode)
+        except Exception:
+            # Fallback jika modul tidak terbaca
+            universe_tickers = ["ANTM", "GOTO", "BBCA", "BMRI", "BBRI", "BBNI", "ASII", "TLKM", "BREN", "AMMN"]
+        
+        if ticker not in universe_tickers:
+            universe_tickers.append(ticker)
+
+        scan_df = analysis.broker_alpha_scan(
+            universe_tickers,
+            horizon=horizon,
+            min_events=min_events,
+            min_net_value=min_net_buy * 1e9,
+            group_by=("ticker", "broker_code")
+        )
+        scan_rows_all = scan_df.to_dict("records") if not scan_df.empty else []
+        scan_rows_ticker = scan_df[scan_df["ticker"] == ticker].to_dict("records") if not scan_df.empty else []
+    except Exception:
+        scan_rows_all = []
+        scan_rows_ticker = []
+
+    # 2. Accumulation Event Study (Khusus Ticker yang dibuka)
+    try:
+        ACC_SIGNALS = ["STRONG_ACCUMULATION", "ACCUMULATION", "NET_BUY", "AKUMULASI_KUAT", "AKUMULASI"]
+        event_table = analysis.event_study_table(
+            tickers=[ticker],
+            horizons=(1, 3, 5, 10),
+            lookback_days=window_days,
+            signals=ACC_SIGNALS
+        )
+        
+        ribbon_chart = []
+        individual_paths = []
+        table_data = []
+
+        if not event_table.empty:
+            xs = [0, 1, 3, 5, 10]
+            cols = [f"t_plus_{h}d" for h in xs]
+            valid_cols = [c for c in cols if c in event_table.columns]
+            values = event_table[valid_cols].apply(pd.to_numeric, errors="coerce")
+            median = values.median()
+            q25 = values.quantile(0.25)
+            q75 = values.quantile(0.75)
+
+            labels = ["Signal", "+1D", "+3D", "+5D", "+10D"]
+            for i, col in enumerate(valid_cols):
+                ribbon_chart.append({
+                    "day": labels[i],
+                    "median": float(median[col]) if pd.notna(median[col]) else None,
+                    "range": [
+                        float(q25[col]) if pd.notna(q25[col]) else None,
+                        float(q75[col]) if pd.notna(q75[col]) else None
+                    ]
+                })
+            
+            for idx, row in values.iterrows():
+                path_data = {}
+                for i, col in enumerate(valid_cols):
+                    path_data[labels[i]] = float(row[col]) if pd.notna(row[col]) else None
+                individual_paths.append({"id": f"event_{idx}", "data": path_data})
+            
+            for _, row in event_table.iterrows():
+                table_data.append({
+                    "ticker": str(row.get("ticker", ticker)),
+                    "signal_date": str(row.get("signal_date", "")),
+                    "signal": str(row.get("bandar_signal", "")),
+                    "t_plus_1d": float(row.get("t_plus_1d")) if pd.notna(row.get("t_plus_1d")) else None,
+                    "t_plus_3d": float(row.get("t_plus_3d")) if pd.notna(row.get("t_plus_3d")) else None,
+                    "t_plus_5d": float(row.get("t_plus_5d")) if pd.notna(row.get("t_plus_5d")) else None,
+                    "t_plus_10d": float(row.get("t_plus_10d")) if pd.notna(row.get("t_plus_10d")) else None,
+                })
+    except Exception:
+        pass
+
+    return _clean({
+        "broker_scan": {"ticker": scan_rows_ticker, "all": scan_rows_all},
+        "event_study": {"chart": ribbon_chart, "paths": individual_paths, "table": table_data}
+    })

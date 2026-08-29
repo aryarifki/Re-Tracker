@@ -6,17 +6,28 @@ import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Respon
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+// KITA TAMBAHKAN PROPS BARU DI SINI
 interface ValidationProps {
   ticker: string;
   analysisDate: string;
   windowDays: number;
+  universeMode: string;
+  horizon: number;
+  minEvents: number;
 }
 
-export default function ValidationTab({ ticker, analysisDate, windowDays }: ValidationProps) {
+export default function ValidationTab({ ticker, analysisDate, windowDays, universeMode, horizon, minEvents }: ValidationProps) {
+  const [scanMode, setScanMode] = useState<"ticker" | "all">("ticker");
   const [showIndividual, setShowIndividual] = useState(false);
 
-  // Gunakan parameter standar horizon=10, min_events=5
-  const url = "/api/bandar/validation/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays + "&horizon=10&min_events=5";
+  // URL SEKARANG 100% DINAMIS MENGIKUTI SIDEBAR
+  const url = "/api/bandar/validation-v2/" + ticker + 
+              "?analysis_date=" + analysisDate + 
+              "&window_days=" + windowDays + 
+              "&horizon=" + horizon + 
+              "&min_events=" + minEvents + 
+              "&universe_mode=" + universeMode;
+              
   const { data, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 0 });
 
   const chartData = useMemo(() => {
@@ -29,6 +40,26 @@ export default function ValidationTab({ ticker, analysisDate, windowDays }: Vali
       return row;
     });
   }, [data]);
+
+  const sortedScanData = useMemo(() => {
+    if (!data?.broker_scan) return [];
+    const rawData = scanMode === "ticker" ? data.broker_scan.ticker : data.broker_scan.all;
+    if (!rawData) return [];
+
+    return [...rawData].sort((a, b) => {
+      if (a.significant && !b.significant) return -1;
+      if (!a.significant && b.significant) return 1;
+      const wrA = a.win_rate || 0;
+      const wrB = b.win_rate || 0;
+      if (wrB !== wrA) return wrB - wrA;
+      const pA = a.p_value_one_sided ?? 1;
+      const pB = b.p_value_one_sided ?? 1;
+      if (pA !== pB) return pA - pB;
+      const mrA = a.mean_fwd_return || 0;
+      const mrB = b.mean_fwd_return || 0;
+      return mrB - mrA;
+    });
+  }, [data, scanMode]);
 
   if (isLoading) return <div className="text-neutral-300 font-medium p-4 animate-pulse">Loading validation data...</div>;
   if (error || !data) return <div className="text-red-400 font-bold p-4">Error loading validation data.</div>;
@@ -49,14 +80,31 @@ export default function ValidationTab({ ticker, analysisDate, windowDays }: Vali
   };
 
   const isBullish = chartData.length > 0 && chartData[chartData.length - 1].median >= 100;
-  const themeColor = isBullish ? "#10b981" : "#f43f5e"; // Emerald vs Rose
+  const themeColor = isBullish ? "#10b981" : "#f43f5e";
 
   return (
     <div className="space-y-6">
       {/* SECTION 1: BROKER-SPECIFIC RETURN VALIDATION */}
       <div className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-600 shadow-lg">
-        <h3 className="text-sm font-bold text-white mb-4">Broker-Specific Return Validation</h3>
-        {data.broker_scan?.length === 0 ? (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+          <h3 className="text-sm font-bold text-white">Broker-Specific Return Validation</h3>
+          <div className="flex items-center bg-neutral-900/60 p-1 rounded-lg border border-neutral-700">
+            <button 
+              onClick={() => setScanMode("ticker")} 
+              className={"px-3 py-1.5 text-[11px] font-bold rounded-md transition-all " + (scanMode === "ticker" ? "bg-blue-500 text-white shadow" : "text-neutral-400 hover:text-neutral-200")}
+            >
+              Current Ticker
+            </button>
+            <button 
+              onClick={() => setScanMode("all")} 
+              className={"px-3 py-1.5 text-[11px] font-bold rounded-md transition-all " + (scanMode === "all" ? "bg-emerald-500 text-white shadow" : "text-neutral-400 hover:text-neutral-200")}
+            >
+              All Watchlist
+            </button>
+          </div>
+        </div>
+
+        {sortedScanData.length === 0 ? (
           <div className="text-neutral-400 text-xs">No broker passes the current validation settings.</div>
         ) : (
           <div className="overflow-auto max-h-[400px]">
@@ -66,25 +114,23 @@ export default function ValidationTab({ ticker, analysisDate, windowDays }: Vali
                   <th className="py-2 px-3 font-semibold">Ticker</th>
                   <th className="py-2 px-3 font-semibold">Broker</th>
                   <th className="py-2 px-3 text-right font-semibold">Events</th>
+                  <th className="py-2 px-3 text-right font-semibold">Win Rate</th>
                   <th className="py-2 px-3 text-right font-semibold">Mean Return</th>
                   <th className="py-2 px-3 text-right font-semibold">Median Return</th>
-                  <th className="py-2 px-3 text-right font-semibold">Win Rate</th>
-                  <th className="py-2 px-3 text-right font-semibold">Avg Net Buy</th>
                   <th className="py-2 px-3 text-right font-semibold">Total Net Buy</th>
                   <th className="py-2 px-3 text-right font-semibold">P Value</th>
                   <th className="py-2 px-3 text-center font-semibold">Significant</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-700/50">
-                {data.broker_scan.map((b: any, idx: number) => (
+                {sortedScanData.map((b: any, idx: number) => (
                   <tr key={idx} className="hover:bg-neutral-700/60 transition-colors text-neutral-200 font-medium">
                     <td className="py-2 px-3">{b.ticker}</td>
                     <td className="py-2 px-3 font-bold text-blue-300">{b.broker_code}</td>
                     <td className="py-2 px-3 text-right">{b.n_events}</td>
+                    <td className="py-2 px-3 text-right text-emerald-300 font-bold">{fmtPct(b.win_rate)}</td>
                     <td className={"py-2 px-3 text-right " + (b.mean_fwd_return > 0 ? "text-emerald-400" : "text-rose-400")}>{fmtPct(b.mean_fwd_return)}</td>
                     <td className={"py-2 px-3 text-right " + (b.median_fwd_return > 0 ? "text-emerald-400" : "text-rose-400")}>{fmtPct(b.median_fwd_return)}</td>
-                    <td className="py-2 px-3 text-right text-emerald-300">{fmtPct(b.win_rate)}</td>
-                    <td className="py-2 px-3 text-right">{fmtRp(b.avg_net_value)}</td>
                     <td className="py-2 px-3 text-right">{fmtRp(b.total_net_value)}</td>
                     <td className="py-2 px-3 text-right font-mono">{b.p_value_one_sided?.toFixed(4) || "-"}</td>
                     <td className="py-2 px-3 text-center">
@@ -131,23 +177,17 @@ export default function ValidationTab({ ticker, analysisDate, windowDays }: Vali
                     itemStyle={{ color: '#e5e5e5' }}
                     labelStyle={{ color: '#a3a3a3', fontWeight: 'bold', marginBottom: '4px' }}
                   />
-                  <line x1="0%" y1="50%" x2="100%" y2="50%" stroke="#94a3b8" strokeDasharray="5 5" /> {/* Base line equivalent */}
+                  <line x1="0%" y1="50%" x2="100%" y2="50%" stroke="#94a3b8" strokeDasharray="5 5" />
                   
-                  {/* Individual Paths */}
-                  {showIndividual && data.event_study.paths.map((path: any) => (
+                  {showIndividual && (data.event_study?.paths || []).map((path: any) => (
                     <Line key={path.id} type="monotone" dataKey={path.id} stroke="#94a3b8" strokeWidth={1} dot={false} opacity={0.25} activeDot={false} isAnimationActive={false} />
                   ))}
-
-                  {/* Range (25-75 percentile) */}
                   <Area type="monotone" dataKey="range" fill={themeColor} fillOpacity={0.2} stroke="none" isAnimationActive={false} />
-                  
-                  {/* Median Line */}
                   <Line type="monotone" dataKey="median" stroke={themeColor} strokeWidth={3} dot={{ r: 4, fill: themeColor, strokeWidth: 2, stroke: '#171717' }} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Event Study Table */}
             <div className="overflow-auto max-h-[300px]">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="sticky top-0 bg-neutral-800 text-neutral-300 border-b border-neutral-600 text-xs z-10">
@@ -162,7 +202,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays }: Vali
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-700/50">
-                  {data.event_study.table.map((row: any, idx: number) => (
+                  {(data.event_study?.table || []).map((row: any, idx: number) => (
                     <tr key={idx} className="hover:bg-neutral-700/60 transition-colors text-neutral-200 font-medium">
                       <td className="py-2 px-3 font-bold">{row.ticker}</td>
                       <td className="py-2 px-3">{row.signal_date.split(" ")[0]}</td>
