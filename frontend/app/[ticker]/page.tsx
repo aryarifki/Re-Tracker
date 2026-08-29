@@ -386,7 +386,16 @@ export default function TickerPage() {
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
             {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
-            {activeTab === "Validation" && <ValidationTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
+            {activeTab === "Validation" && (
+              <ValidationTab 
+                ticker={ticker} 
+                analysisDate={analysisDate} 
+                windowDays={windowDays} 
+                universeMode={universeMode} 
+                horizon={horizon} 
+                minEvents={minEvents} 
+              />
+            )}
             {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && (
               <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
             )}
