@@ -1507,3 +1507,88 @@ def get_dynamic_universe(mode: str) -> list[str]:
         
     # Fallback terakhir jika indeks benar-benar tidak dikenali
     return ["ANTM", "BBCA", "BBRI", "BMRI", "GOTO", "TLKM"]
+
+_SCREENER_CACHE = {}
+
+@router.get("/screener-v2")
+def smart_screener(
+    universe_mode: str = "lq45",
+    analysis_date: str = None,
+    window_days: int = 20
+):
+    import time as _time
+    from datetime import datetime
+    import pandas as pd
+    from idx_bandarmology import analysis
+    from .bandarmology import get_dynamic_universe # Memakai penerjemah anti-blokir kita
+    
+    # Kunci cache berdasarkan parameter sidebar
+    cache_key = f"screener|{universe_mode}|{analysis_date}|{window_days}"
+    now = _time.time()
+    
+    if cache_key in _SCREENER_CACHE and (now - _SCREENER_CACHE[cache_key]["ts"]) < 1800:
+        return _SCREENER_CACHE[cache_key]["data"]
+        
+    # 1. Dapatkan daftar ticker
+    tickers = get_dynamic_universe(universe_mode)
+    if not tickers:
+        return {"data": []}
+        
+    try:
+        # 2. Tarik data akumulasi menggunakan modul bawaan
+        # Kita set detail_level ke 1 untuk mendapatkan info broker
+        df_acc = analysis.accumulation_scan(
+            tickers=tickers,
+            lookback_days=window_days,
+            end_date=analysis_date,
+            detail_level=1
+        )
+        
+        if df_acc.empty:
+            return {"data": []}
+            
+        results = []
+        for _, row in df_acc.iterrows():
+            ticker = row.get("ticker", "")
+            signal = str(row.get("bandar_signal", "NEUTRAL")).replace("_", " ")
+            
+            # Ekstrak data dari kolom detail JSON
+            details = row.get("details", {})
+            net_val = details.get("net_buy_val", 0)
+            
+            top_buyers = details.get("top_buyers", [])
+            top_sellers = details.get("top_sellers", [])
+            
+            # Ekstrak kode broker
+            buyer_codes = [b.get("broker", "") for b in top_buyers if b.get("broker")]
+            seller_codes = [s.get("broker", "") for s in top_sellers if s.get("broker")]
+            
+            # Hitung Bandar Average Price (Harga Modal Top Buyers)
+            total_buy_val = sum(b.get("buy_val", 0) for b in top_buyers)
+            total_buy_vol = sum(b.get("buy_vol", 0) for b in top_buyers)
+            
+            bandar_avg = 0
+            if total_buy_vol > 0:
+                # Value dalam rupiah, volume dalam lembar
+                bandar_avg = total_buy_val / total_buy_vol
+                
+            results.append({
+                "ticker": ticker,
+                "signal": signal,
+                "net_value": float(net_val),
+                "bandar_avg_price": float(bandar_avg),
+                "top_buyers": buyer_codes,
+                "top_sellers": seller_codes,
+                "total_buy_vol": float(total_buy_vol)
+            })
+            
+        # Urutkan berdasarkan Net Value terbesar
+        results = sorted(results, key=lambda x: x["net_value"], reverse=True)
+        
+        output = {"data": results}
+        _SCREENER_CACHE[cache_key] = {"ts": now, "data": output}
+        return output
+        
+    except Exception as e:
+        print(f"Screener Error: {e}")
+        return {"data": [], "error": str(e)}
