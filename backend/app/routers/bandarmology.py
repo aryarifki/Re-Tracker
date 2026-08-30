@@ -1390,7 +1390,7 @@ def validation_insight_v2(
     try:
         try:
             from idx_bandarmology.universe import get_universe
-            universe_tickers = get_universe(universe_mode)
+            universe_tickers = get_dynamic_universe(universe_mode)
         except Exception:
             # Fallback jika modul tidak terbaca
             universe_tickers = ["ANTM", "GOTO", "BBCA", "BMRI", "BBRI", "BBNI", "ASII", "TLKM", "BREN", "AMMN"]
@@ -1468,3 +1468,46 @@ def validation_insight_v2(
         "broker_scan": {"ticker": scan_rows_ticker, "all": scan_rows_all},
         "event_study": {"chart": ribbon_chart, "paths": individual_paths, "table": table_data}
     })
+
+def get_dynamic_universe(mode: str) -> list[str]:
+    """Penerjemah UI ke Kode Resmi BEI"""
+    from idx_bandarmology.universe import get_universe, _fetch_bei_constituent
+    
+    mode = mode.lower().strip()
+    standard_modes = ["watchlist", "idx30", "lq45", "idx80", "all", "liquid"]
+    
+    # 1. Jika indeks standar, gunakan fungsi bawaan
+    if mode in standard_modes:
+        try:
+            return get_dynamic_universe(mode)
+        except Exception:
+            pass
+            
+    # 2. Kamus Terjemahan (Mapping) ke BEI Index Code
+    bei_mapping = {
+        "idx_high_dividend": "IDXHIDIV20",
+        "idx_bumn": "IDXBUMN20",
+        "idx_smc": "IDXSMCLIQ",
+        "esg_kehati": "ESGQKEHATI",
+        "idxenergy": "IDXENERGY",
+        "idxtrans": "IDXTRANS",
+        "idxinfra": "IDXINFRA",
+        "idxtechno": "IDXTECHNO",
+        "idxpropert": "IDXPROPERT",
+        "idxfinance": "IDXFINANCE",
+        "idxhealth": "IDXHEALTH",
+        "idxcyclic": "IDXCYCLIC",
+        "idxnoncyc": "IDXNONCYC",
+        "idxindust": "IDXINDUST",
+        "idxbasic": "IDXBASIC",
+        "bisnis-27": "BISNIS-27"
+    }
+    
+    # 3. Tarik data live dari BEI jika ada di kamus
+    if mode in bei_mapping:
+        tickers = _fetch_bei_constituent(bei_mapping[mode])
+        if tickers:
+            return sorted(list(set(tickers)))
+            
+    # Fallback aman agar UI tidak blank
+    return ["ANTM", "BBCA", "BBRI", "BMRI", "GOTO", "TLKM"]
