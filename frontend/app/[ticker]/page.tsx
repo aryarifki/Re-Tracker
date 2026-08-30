@@ -51,6 +51,7 @@ function signalColor(score: number | null): string {
 import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
 import CausalityTab from "@/components/analysis/CausalityTab";
 import ValidationTab from "@/components/analysis/ValidationTab";
+import ScreenerTab from "@/components/analysis/ScreenerTab";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = [
@@ -412,13 +413,20 @@ export default function TickerPage() {
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
             {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
             {activeTab === "Validation" && (
-              <ValidationTab 
-                ticker={ticker} 
-                analysisDate={analysisDate} 
-                windowDays={windowDays} 
-                universeMode={universe} 
-                horizon={horizon} 
-                minEvents={minEvents} 
+              <ValidationTab
+                ticker={ticker}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+                universeMode={universe}
+                horizon={horizon}
+                minEvents={minEvents}
+              />
+            )}
+            {activeTab === "Screener" && (
+              <ScreenerTab
+                universeMode={universe}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
               />
             )}
             {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && (
