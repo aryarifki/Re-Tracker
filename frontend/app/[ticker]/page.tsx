@@ -411,7 +411,7 @@ export default function TickerPage() {
                 ticker={ticker} 
                 analysisDate={analysisDate} 
                 windowDays={windowDays} 
-                universeMode={universeMode} 
+                universeMode={universe} 
                 horizon={horizon} 
                 minEvents={minEvents} 
               />
