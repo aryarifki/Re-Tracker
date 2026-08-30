@@ -6,7 +6,6 @@ import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Respon
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-// KITA TAMBAHKAN PROPS BARU DI SINI
 interface ValidationProps {
   ticker: string;
   analysisDate: string;
@@ -20,7 +19,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
   const [scanMode, setScanMode] = useState<"ticker" | "all">("ticker");
   const [showIndividual, setShowIndividual] = useState(false);
 
-  // URL SEKARANG 100% DINAMIS MENGIKUTI SIDEBAR
+  // Parameter universe_mode sekarang terkirim dengan benar ke backend
   const url = "/api/bandar/validation-v2/" + ticker + 
               "?analysis_date=" + analysisDate + 
               "&window_days=" + windowDays + 
@@ -43,6 +42,8 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
 
   const sortedScanData = useMemo(() => {
     if (!data?.broker_scan) return [];
+    
+    // Switch data berdasarkan tombol yang diklik
     const rawData = scanMode === "ticker" ? data.broker_scan.ticker : data.broker_scan.all;
     if (!rawData) return [];
 
@@ -84,22 +85,22 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
 
   return (
     <div className="space-y-6">
-      {/* SECTION 1: BROKER-SPECIFIC RETURN VALIDATION */}
       <div className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-600 shadow-lg">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <h3 className="text-sm font-bold text-white">Broker-Specific Return Validation</h3>
+          
           <div className="flex items-center bg-neutral-900/60 p-1 rounded-lg border border-neutral-700">
             <button 
               onClick={() => setScanMode("ticker")} 
               className={"px-3 py-1.5 text-[11px] font-bold rounded-md transition-all " + (scanMode === "ticker" ? "bg-blue-500 text-white shadow" : "text-neutral-400 hover:text-neutral-200")}
             >
-              Current Ticker
+              {"Current Ticker (" + ticker + ")"}
             </button>
             <button 
               onClick={() => setScanMode("all")} 
               className={"px-3 py-1.5 text-[11px] font-bold rounded-md transition-all " + (scanMode === "all" ? "bg-emerald-500 text-white shadow" : "text-neutral-400 hover:text-neutral-200")}
             >
-              All Watchlist
+              {"All Watchlist (" + universeMode.toUpperCase() + ")"}
             </button>
           </div>
         </div>
@@ -148,7 +149,6 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
         )}
       </div>
 
-      {/* SECTION 2: ACCUMULATION EVENT STUDY */}
       <div className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-600 shadow-lg">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <h3 className="text-sm font-bold text-white">Accumulation Event Study</h3>

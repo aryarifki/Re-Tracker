@@ -1470,44 +1470,40 @@ def validation_insight_v2(
     })
 
 def get_dynamic_universe(mode: str) -> list[str]:
-    """Penerjemah UI ke Kode Resmi BEI"""
-    from idx_bandarmology.universe import get_universe, _fetch_bei_constituent
-    
+    """Penerjemah UI ke Daftar Ticker (Bypass BEI Cloudflare via Database Internal)"""
+    from idx_bandarmology.universe import get_universe
     mode = mode.lower().strip()
-    standard_modes = ["watchlist", "idx30", "lq45", "idx80", "all", "liquid"]
     
-    # 1. Jika indeks standar, gunakan fungsi bawaan
+    # 1. Coba fungsi standar bawaan library (lq45, idx30, idx80)
+    standard_modes = ["watchlist", "idx30", "lq45", "idx80", "all", "liquid"]
     if mode in standard_modes:
         try:
-            return get_dynamic_universe(mode)
+            return get_universe(mode)
         except Exception:
             pass
             
-    # 2. Kamus Terjemahan (Mapping) ke BEI Index Code
-    bei_mapping = {
-        "idx_high_dividend": "IDXHIDIV20",
-        "idx_bumn": "IDXBUMN20",
-        "idx_smc": "IDXSMCLIQ",
-        "esg_kehati": "ESGQKEHATI",
-        "idxenergy": "IDXENERGY",
-        "idxtrans": "IDXTRANS",
-        "idxinfra": "IDXINFRA",
-        "idxtechno": "IDXTECHNO",
-        "idxpropert": "IDXPROPERT",
-        "idxfinance": "IDXFINANCE",
-        "idxhealth": "IDXHEALTH",
-        "idxcyclic": "IDXCYCLIC",
-        "idxnoncyc": "IDXNONCYC",
-        "idxindust": "IDXINDUST",
-        "idxbasic": "IDXBASIC",
-        "bisnis-27": "BISNIS-27"
+    # 2. Database Internal Super Cepat (Bypass Blokir BEI Cloudflare)
+    _HARDCODED_INDICES = {
+        "idx_bumn": ["ADHI", "ANTM", "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "ELSA", "JSMR", "MTEL", "PGAS", "PGEO", "PTBA", "PTPP", "SMGR", "TINS", "TLKM", "WIKA", "WSKT"],
+        "idx_high_dividend": ["ADRO", "AMRT", "ANTM", "ASII", "BBNI", "BBRI", "BBCA", "BMRI", "BNGA", "BRPT", "EXCL", "HEXA", "HMSP", "INDF", "ITMG", "KLBF", "PTBA", "TLKM", "UNTR"],
+        "esg_kehati": ["AALI", "ADHI", "ASII", "BBCA", "BBNI", "BBRI", "BBTN", "BMRI", "BSDE", "INDF", "JSMR", "KLBF", "PGAS", "PTBA", "SMGR", "TLKM", "UNTR", "UNVR", "WIKA"],
+        "bisnis-27": ["ADRO", "AKRA", "AMRT", "ANTM", "ASII", "BBCA", "BBNI", "BBRI", "BMRI", "BRPT", "CPIN", "CTRA", "EXCL", "INKP", "ITMG", "JSMR", "KLBF", "MAPI", "MIKA", "PGAS", "PTBA", "SMGR", "TLKM", "TOWR", "UNTR"],
+        "idx_smc": ["ABMM", "ACES", "AGII", "AKRA", "AMFG", "ARNA", "ASSA", "AUTO", "BIRD", "BNGA", "BSDE", "CLEO", "CTRA", "DRMA", "DSNG", "ELSA", "ENRG", "ESSA", "HEAL", "HRUM", "IMAS", "INDY", "JPFA", "KEEN", "LSIP", "MARK", "MBAP", "MCOL", "MEDC", "MIKA", "MYOR", "NISP", "PANR", "PNLF", "PTRO", "RAJA", "SGER", "SIDO", "SMSM", "SSIA", "TAPG", "TOTL"],
+        "idxenergy": ["ADMR", "ADRO", "AKRA", "APEX", "BIPI", "BUMI", "BYAN", "CUAN", "DEWA", "DOID", "DSSA", "ELSA", "ENRG", "ESSA", "GEMS", "GTBO", "HRUM", "INDY", "ITMG", "KKGI", "KOPI", "MBAP", "MCOL", "MEDC", "PGAS", "PGEO", "PTBA", "PTRO", "RAJA", "RMKE", "SGER", "SMMT", "TEBE", "TOBA", "WINS"],
+        "idxtechno": ["AWAN", "BELI", "BUKA", "DCII", "DIVA", "EDGE", "ELIT", "EMTK", "GOTO", "KCI", "KIOS", "LUCK", "MCAS", "MLPT", "MTDL", "NFCX", "PTSN", "TECH", "TFAS", "WIFI", "ZATA"],
+        "idxfinance": ["ADMF", "AGRO", "AMOR", "ARTO", "BBCA", "BBHI", "BBKP", "BBNI", "BBRI", "BBTN", "BDMN", "BFIN", "BJBR", "BJTM", "BMRI", "BNBA", "BNGA", "BNII", "BNLI", "BRIS", "BTPN", "CFIN", "MEGA", "NISP", "NOBU", "PNBN", "PNBS", "PNLF", "POLA", "SDRA"],
+        "idxhealth": ["CARE", "DGNS", "HEAL", "IRRA", "KAEF", "KLBF", "MIKA", "OMNI", "PEHA", "PRDA", "RSGK", "SAME", "SIDO", "SILO", "SOHO"],
+        "idxpropert": ["APLN", "ASRI", "BAPA", "BEST", "BKSL", "BSDE", "CITY", "CTRA", "DILD", "DMAS", "DUTI", "GWNG", "KIJA", "LPCK", "LPKR", "MDLN", "MTLA", "PWON", "SMRA", "SSIA"],
+        "idxinfra": ["ADHI", "BALI", "BICC", "CASS", "CMNP", "EXCL", "FREN", "ISAT", "JSMR", "KEEN", "META", "MTEL", "PGAS", "PORT", "PTPP", "TBAL", "TBIG", "TLKM", "TOWR", "WIKA", "WSKT"],
+        "idxindust": ["ASII", "AUTO", "BIMA", "BMSR", "BUDI", "HEXA", "IMAS", "KBLI", "KOBX", "LION", "MARK", "SCCO", "SMSM", "UNTR"],
+        "idxbasic": ["ADMG", "AGII", "AMMN", "ANTM", "ARCI", "AVIA", "BRMS", "BRPT", "CPIN", "ESSA", "FASW", "INCO", "INKP", "INTP", "JPFA", "LTLS", "MDKA", "NCKL", "SMCB", "SMGR", "TPIA"],
+        "idxcyclic": ["ACES", "AMRT", "AUTO", "CSAP", "ERAA", "LPPF", "MAPI", "MAPA", "MSKY", "RALS"],
+        "idxnoncyc": ["AALI", "CINT", "CLEO", "CMRY", "CPIN", "DSNG", "GGRM", "HMSP", "ICBP", "INDF", "JPFA", "KINO", "LSIP", "MAIN", "MYOR", "ROTI", "SSMS", "STTP", "TBLA", "ULTJ", "UNVR"],
+        "idxtrans": ["ASSA", "BIRD", "BPTR", "CASS", "CMPP", "GIAA", "HAIS", "HITS", "IPCC", "KJEN", "NELY", "PORT", "PSSI", "SAPX", "TMAS", "TRUK"]
     }
     
-    # 3. Tarik data live dari BEI jika ada di kamus
-    if mode in bei_mapping:
-        tickers = _fetch_bei_constituent(bei_mapping[mode])
-        if tickers:
-            return sorted(list(set(tickers)))
-            
-    # Fallback aman agar UI tidak blank
+    if mode in _HARDCODED_INDICES:
+        return sorted(list(set(_HARDCODED_INDICES[mode])))
+        
+    # Fallback terakhir jika indeks benar-benar tidak dikenali
     return ["ANTM", "BBCA", "BBRI", "BMRI", "GOTO", "TLKM"]
