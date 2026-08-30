@@ -97,11 +97,16 @@ export default function TickerPage() {
 
   /* Fetch universe tickers */
   const { data: universeData } = useSWR("/api/bandar/universe/" + universe, fetcher);
+  const { data: allUniverseData } = useSWR("/api/bandar/universe/all", fetcher);
+  
   const tickers = universeData?.tickers || [];
+  const allTickers = allUniverseData?.tickers || [];
+
   const filteredTickers = useMemo(() => {
     const term = searchTerm.toUpperCase();
-    return term ? tickers.filter((t: string) => t.includes(term)).slice(0, 10) : tickers.slice(0, 10);
-  }, [tickers, searchTerm]);
+    // JALUR VIP: Jika ada ketikan, cari di allTickers (seluruh bursa). Jika kosong, pakai tickers dari dropdown.
+    return term ? allTickers.filter((t: string) => t.includes(term)).slice(0, 10) : tickers.slice(0, 10);
+  }, [tickers, allTickers, searchTerm]);
 
   /* Fetch dates for selected ticker */
   const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
