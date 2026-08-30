@@ -53,7 +53,27 @@ import CausalityTab from "@/components/analysis/CausalityTab";
 import ValidationTab from "@/components/analysis/ValidationTab";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
-const UNIVERSES = ["watchlist", "idx30", "lq45", "idx80", "all"];
+const UNIVERSES = [
+  "watchlist", 
+  "idx80", 
+  "lq45", 
+  "idx_high_dividend", 
+  "idx_bumn", 
+  "idx_smc", 
+  "esg_kehati", 
+  "idxenergy", 
+  "idxtrans", 
+  "idxinfra", 
+  "idxtechno", 
+  "idxpropert", 
+  "idxfinance", 
+  "idxhealth", 
+  "idxcyclic", 
+  "idxnoncyc", 
+  "idxindust", 
+  "idxbasic", 
+  "bisnis-27"
+];
 const WINDOWS = [20, 30, 60, 90, 180];
 const HORIZONS = [1, 3, 5, 10];
 
