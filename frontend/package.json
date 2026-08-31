@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@iconify/react": "^6.0.2",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "lightweight-charts": "^5.2.1",

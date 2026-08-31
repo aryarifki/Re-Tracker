@@ -429,7 +429,7 @@ export default function TickerPage() {
                 windowDays={windowDays}
               />
             )}
-            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && (
+            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && activeTab !== "Screener" && (
               <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
             )}
           </div>

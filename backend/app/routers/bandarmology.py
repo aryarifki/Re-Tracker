@@ -1508,6 +1508,18 @@ def get_dynamic_universe(mode: str) -> list[str]:
     # Fallback terakhir jika indeks benar-benar tidak dikenali
     return ["ANTM", "BBCA", "BBRI", "BMRI", "GOTO", "TLKM"]
 
+
+
+
+
+
+
+
+
+
+
+
+
 _SCREENER_CACHE = {}
 
 @router.get("/screener-v2")
@@ -1517,78 +1529,116 @@ def smart_screener(
     window_days: int = 20
 ):
     import time as _time
-    from datetime import datetime
     import pandas as pd
-    from idx_bandarmology import analysis
-    from .bandarmology import get_dynamic_universe # Memakai penerjemah anti-blokir kita
+    from idx_bandarmology import analysis, storage
+    from .bandarmology import get_dynamic_universe, _conviction_score
     
-    # Kunci cache berdasarkan parameter sidebar
     cache_key = f"screener|{universe_mode}|{analysis_date}|{window_days}"
     now = _time.time()
     
     if cache_key in _SCREENER_CACHE and (now - _SCREENER_CACHE[cache_key]["ts"]) < 1800:
         return _SCREENER_CACHE[cache_key]["data"]
         
-    # 1. Dapatkan daftar ticker
     tickers = get_dynamic_universe(universe_mode)
     if not tickers:
-        return {"data": []}
+        return {"data": [], "meta": {}}
         
+    analysis_ts = pd.Timestamp(analysis_date) if analysis_date else pd.Timestamp.today()
+    window_start = analysis_ts - pd.Timedelta(days=window_days)
+    
     try:
-        # 2. Tarik data akumulasi menggunakan modul bawaan
-        # Kita set detail_level ke 1 untuk mendapatkan info broker
-        df_acc = analysis.accumulation_scan(
-            tickers=tickers,
-            lookback_days=window_days,
-            end_date=analysis_date,
-            detail_level=1
+        scan_10d = analysis.broker_alpha_scan(
+            tickers, horizon=10, min_events=5, min_net_value=0,
+            group_by=("ticker", "broker_code")
         )
+    except Exception:
+        scan_10d = pd.DataFrame()
         
-        if df_acc.empty:
-            return {"data": []}
-            
-        results = []
-        for _, row in df_acc.iterrows():
-            ticker = row.get("ticker", "")
-            signal = str(row.get("bandar_signal", "NEUTRAL")).replace("_", " ")
-            
-            # Ekstrak data dari kolom detail JSON
-            details = row.get("details", {})
-            net_val = details.get("net_buy_val", 0)
-            
-            top_buyers = details.get("top_buyers", [])
-            top_sellers = details.get("top_sellers", [])
-            
-            # Ekstrak kode broker
-            buyer_codes = [b.get("broker", "") for b in top_buyers if b.get("broker")]
-            seller_codes = [s.get("broker", "") for s in top_sellers if s.get("broker")]
-            
-            # Hitung Bandar Average Price (Harga Modal Top Buyers)
-            total_buy_val = sum(b.get("buy_val", 0) for b in top_buyers)
-            total_buy_vol = sum(b.get("buy_vol", 0) for b in top_buyers)
-            
-            bandar_avg = 0
-            if total_buy_vol > 0:
-                # Value dalam rupiah, volume dalam lembar
-                bandar_avg = total_buy_val / total_buy_vol
+    results = []
+    
+    for ticker in tickers[:100]:
+        try:
+            # Tarik data dari storage agar persis sama dengan app.py
+            try:
+                df_flow_full = storage.read_broker_flow([ticker])
+            except Exception:
+                continue
                 
+            if df_flow_full.empty:
+                continue
+                
+            df_flow_full = df_flow_full[df_flow_full["date"] <= analysis_ts].sort_values("date")
+            if df_flow_full.empty:
+                continue
+                
+            latest_flow = df_flow_full.iloc[-1]
+            raw_signal = latest_flow.get("bandar_signal", "NEUTRAL")
+            signal = str(raw_signal).replace("_", " ").title() if pd.notna(raw_signal) else "Neutral"
+            if signal.upper() == "NET_BUY": signal = "Net Buy"
+            elif signal.upper() == "NET_SELL": signal = "Net Sell"
+            
+            # Hitung Foreign 5D Sum
+            foreign_5d = float(df_flow_full.tail(5)["foreign_net_broker"].fillna(0).sum())
+            
+            raw_date = latest_flow.get("date")
+            data_date_str = str(pd.Timestamp(raw_date).date()) if pd.notna(raw_date) else str(analysis_ts.date())
+            
+            # Hitung Conviction menggunakan foreign_5d
+            try:
+                conv_data = _conviction_score(raw_signal, foreign_5d, scan_10d, ticker)
+                final_score = float(conv_data.get("score", 0.0))
+            except Exception:
+                final_score = 50.0
+
+            df_smart = analysis.smart_money_daily_flow(ticker, lookback_days=window_days)
+            total_net_val = df_smart['smart_net'].sum() if (isinstance(df_smart, pd.DataFrame) and not df_smart.empty and 'smart_net' in df_smart.columns) else 0.0
+
+            top_b, top_s = analysis.top_net_broker_summary(ticker, top_n=150)
+            buyer_codes = []
+            bandar_avg, market_val, market_lot = 0.0, 0.0, 0.0
+            
+            if isinstance(top_b, pd.DataFrame) and not top_b.empty:
+                if 'broker_code' in top_b.columns: buyer_codes = top_b['broker_code'].tolist()
+                if 'buy_value' in top_b.columns and 'buy_lot' in top_b.columns:
+                    b_val, b_lot = top_b['buy_value'].head(5).sum(), top_b['buy_lot'].head(5).sum()
+                    if b_lot > 0: bandar_avg = b_val / (b_lot * 100)
+                    market_val += top_b['buy_value'].sum() + top_b.get('sell_value', pd.Series([0])).sum()
+                    market_lot += top_b['buy_lot'].sum() + top_b.get('sell_lot', pd.Series([0])).sum()
+                        
+            if isinstance(top_s, pd.DataFrame) and not top_s.empty:
+                if 'buy_value' in top_s.columns and 'buy_lot' in top_s.columns:
+                    market_val += top_s['buy_value'].sum() + top_s.get('sell_value', pd.Series([0])).sum()
+                    market_lot += top_s['buy_lot'].sum() + top_s.get('sell_lot', pd.Series([0])).sum()
+            
+            curr_price = (market_val / (market_lot * 100)) if market_lot > 0 else 0.0
+            total_value = float(latest_flow.get("total_value", 0.0))
+            
             results.append({
                 "ticker": ticker,
                 "signal": signal,
-                "net_value": float(net_val),
+                "conviction_score": final_score,
+                "foreign_net": foreign_5d,
+                "net_value": float(total_net_val),
                 "bandar_avg_price": float(bandar_avg),
-                "top_buyers": buyer_codes,
-                "top_sellers": seller_codes,
-                "total_buy_vol": float(total_buy_vol)
+                "total_value": total_value, 
+                "current_price": float(curr_price),
+                "top_buyer": str(buyer_codes[0]) if buyer_codes else "-",
+                "data_date": data_date_str 
             })
+                
+        except Exception:
+            continue
             
-        # Urutkan berdasarkan Net Value terbesar
-        results = sorted(results, key=lambda x: x["net_value"], reverse=True)
-        
-        output = {"data": results}
-        _SCREENER_CACHE[cache_key] = {"ts": now, "data": output}
-        return output
-        
-    except Exception as e:
-        print(f"Screener Error: {e}")
-        return {"data": [], "error": str(e)}
+    # Sortir berdasarkan Conviction Score seperti di app.py
+    results = sorted(results, key=lambda x: x["conviction_score"], reverse=True)
+    
+    output = {
+        "data": results,
+        "meta": {
+            "window_start": str(window_start.date()),
+            "analysis_date": str(analysis_ts.date())
+        }
+    }
+    _SCREENER_CACHE[cache_key] = {"ts": now, "data": output}
+    
+    return output
