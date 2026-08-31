@@ -52,6 +52,7 @@ import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
 import CausalityTab from "@/components/analysis/CausalityTab";
 import ValidationTab from "@/components/analysis/ValidationTab";
 import ScreenerTab from "@/components/analysis/ScreenerTab";
+import RawTablesTab from "@/components/analysis/RawTablesTab";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = [
@@ -429,7 +430,14 @@ export default function TickerPage() {
                 windowDays={windowDays}
               />
             )}
-            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && activeTab !== "Screener" && (
+            {activeTab === "Raw Tables" && (
+              <RawTablesTab
+                ticker={ticker}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+              />
+            )}
+            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && activeTab !== "Screener" && activeTab !== "Raw Tables" && (
               <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
             )}
           </div>
