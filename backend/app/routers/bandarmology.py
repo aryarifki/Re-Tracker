@@ -1642,3 +1642,66 @@ def smart_screener(
     _SCREENER_CACHE[cache_key] = {"ts": now, "data": output}
     
     return output
+
+
+@router.get("/stocks/{ticker}/raw-tables")
+def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20):
+    import pandas as pd
+    from idx_bandarmology import storage
+    
+    ticker = ticker.upper()
+    analysis_ts = pd.Timestamp(analysis_date) if analysis_date else pd.Timestamp.today()
+    window_start = analysis_ts - pd.Timedelta(days=window_days)
+    
+    def _clean_date(d):
+        return str(pd.Timestamp(d).date()) if pd.notna(d) else "-"
+
+    # 1. BROKER FLOW ROWS
+    flow_list = []
+    try:
+        flow_df = storage.read_broker_flow([ticker])
+        flow_df = flow_df[(flow_df["date"] >= window_start) & (flow_df["date"] <= analysis_ts)].sort_values("date", ascending=False)
+        for _, r in flow_df.iterrows():
+            signal = str(r.get("bandar_signal", "NEUTRAL")).replace("_", " ").title()
+            if signal.upper() == "NET BUY": signal = "Net Buy"
+            if signal.upper() == "NET SELL": signal = "Net Sell"
+            
+            flow_list.append({
+                "date": _clean_date(r.get("date")),
+                "signal": signal,
+                "score": float(r.get("bandar_signal_score", 0)),
+                "foreign_net": float(r.get("foreign_net_broker", 0)),
+                "local_net": float(r.get("local_net_broker", 0)),
+                "total_value": float(r.get("total_value", 0))
+            })
+    except Exception:
+        pass
+        
+    # 2. BROKER ACTIVITY ROWS
+    act_list = []
+    try:
+        act_df = storage.read_broker_activity([ticker])
+        act_df = act_df[(act_df["date"] >= window_start) & (act_df["date"] <= analysis_ts)].copy()
+        
+        # FIX: Urutkan berdasarkan "Gross Value" (Total Transaksi Beli + Jual)
+        # Ini akan mematahkan pola deretan semu dan menampilkan broker teraktif di posisi atas
+        act_df["_gross"] = act_df["buy_value"].fillna(0) + act_df["sell_value"].fillna(0)
+        act_df = act_df.sort_values(["date", "_gross"], ascending=[False, False])
+        
+        for _, r in act_df.iterrows():
+            ptype = str(r.get("participant_type", ""))
+            type_label = "FOREIGN" if ptype == "Asing" else "LOCAL" if ptype == "Lokal" else "GOV" if ptype == "Pemerintah" else ptype.upper()
+            
+            act_list.append({
+                "date": _clean_date(r.get("date")),
+                "broker": str(r.get("broker_code", "")),
+                "type": type_label,
+                "buy": float(r.get("buy_value", 0)),
+                "sell": float(r.get("sell_value", 0)),
+                "net": float(r.get("net_value", 0)),
+                "freq": int(r.get("frequency", 0))
+            })
+    except Exception:
+        pass
+        
+    return {"flow": flow_list, "activity": act_list}
