@@ -13,7 +13,7 @@ interface CausalityProps {
 
 export default function CausalityTab({ ticker, analysisDate, windowDays }: CausalityProps) {
   // 1. Fetch Causality Data
-  const url = "/api/bandar/causality/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays;
+  const url = "/api/bandar/causality-insight/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays;
   const { data: causalityData, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 0 });
 
   // 2. Fetch Detail Data MANDIRI
