@@ -137,11 +137,7 @@ export default function HomeMobile() {
       </section>
 
       {/* QUICK ACTIONS */}
-      <section className="grid grid-cols-2 gap-3">
-        <Link href="/dashboard" className="group flex items-center justify-center gap-2 bg-[#141417] border border-neutral-800 hover:border-blue-500/40 rounded-xl py-3.5 text-sm font-medium text-neutral-300 transition-all active:scale-[0.98] shadow-sm">
-          <Icon icon="ph:chart-polar-duotone" className="text-blue-400 group-hover:scale-110 transition-transform" width="18" />
-          Pro Dashboard
-        </Link>
+      <section className="grid grid-cols-1 gap-3">
         <Link href="/BBCA" className="group flex items-center justify-center gap-2 bg-[#141417] border border-neutral-800 hover:border-indigo-500/40 rounded-xl py-3.5 text-sm font-medium text-neutral-300 transition-all active:scale-[0.98] shadow-sm">
           <Icon icon="ph:magnifying-glass-duotone" className="text-indigo-400 group-hover:scale-110 transition-transform" width="18" />
           Ticker Analysis
