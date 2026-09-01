@@ -246,7 +246,7 @@ def event_study(ticker: str, horizons: str = "1,3,5,10", lookback_days: int = 20
 
 @router.get("/screener")
 def screener(universe_mode: str = "watchlist", horizon: int = 10):
-    tickers = universe.get_universe(mode=universe_mode)
+    tickers = get_dynamic_universe(universe_mode)
     scan = analysis.broker_alpha_scan(
         tickers, horizon=horizon, min_events=5, min_net_value=0,
         group_by=("ticker", "broker_code"),
@@ -332,7 +332,7 @@ def daily_summary(universe_mode: str = "all", refresh: int = 0):
     if cached is not None and not refresh and (now - _SUMMARY_CACHE["ts"]) < 300:
         return cached
 
-    tickers = universe.get_universe(mode=universe_mode)
+    tickers = get_dynamic_universe(universe_mode)
     price_df = storage.read_prices(tickers)
     flow_df = storage.read_broker_flow(tickers)
 
