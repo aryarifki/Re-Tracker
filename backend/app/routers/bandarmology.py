@@ -1219,28 +1219,36 @@ def broker_flow_detail(
     _BROKERFLOW_CACHE["ts"] = now
     _BROKERFLOW_CACHE["data"][cache_key] = result
     return result
-
 @router.get("/causality/{ticker}")
 def causality_insight(ticker: str, analysis_date: str = None, window_days: int = None):
     from idx_bandarmology import analysis
     import pandas as pd
+    import traceback
+
+    ticker = ticker.upper()
 
     # 1. Foreign Granger
     try:
         foreign_causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
-    except Exception:
+    except Exception as e:
+        print(f"\n[!] ERROR CAUSALITY FOREIGN ({ticker}) [!]")
+        traceback.print_exc()
         foreign_causality = None
         
     # 2. Participant Causality
     try:
         part_causality = analysis.causality_by_participant(ticker, max_lags=5)
-    except Exception:
+    except Exception as e:
+        print(f"\n[!] ERROR CAUSALITY PARTICIPANT ({ticker}) [!]")
+        traceback.print_exc()
         part_causality = pd.DataFrame()
         
     # 3. Broker Causality
     try:
         broker_causality = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
-    except Exception:
+    except Exception as e:
+        print(f"\n[!] ERROR CAUSALITY BROKER ({ticker}) [!]")
+        traceback.print_exc()
         broker_causality = pd.DataFrame()
 
     def get_english_text(val):
