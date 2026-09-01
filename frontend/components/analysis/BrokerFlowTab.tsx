@@ -56,7 +56,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
   const { data, error, isLoading } = useSWR(
     ticker ? "/api/bandar/broker-flow/" + ticker + qs : null,
     fetcher,
-    { refreshInterval: 60000, revalidateOnFocus: false }
+    { refreshInterval: 60000 }
   );
 
   useEffect(() => {
@@ -90,27 +90,8 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 h-32 flex flex-col justify-between">
-            <div className="h-4 bg-neutral-800 rounded w-1/4"></div>
-            <div className="flex gap-3"><div className="h-8 bg-neutral-800 rounded w-24"></div><div className="h-8 bg-neutral-800 rounded w-24"></div></div>
-            <div className="h-2 bg-neutral-800 rounded w-1/2"></div>
-        </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 h-80">
-            <div className="h-4 bg-neutral-800 rounded w-1/3 mb-6"></div>
-            <div className="h-full w-full bg-neutral-800/50 rounded-lg"></div>
-        </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 h-64">
-             <div className="h-4 bg-neutral-800 rounded w-1/4 mb-6"></div>
-             <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-10 bg-neutral-800 rounded w-full"></div>)}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || data?.error) return <div className="text-red-400 font-bold p-4">{data?.error || "Error loading broker flow."}</div>;
+  if (isLoading) return <div className="text-neutral-400 text-sm">Loading broker flow...</div>;
+  if (error || data?.error) return <div className="text-red-400 text-sm">{data?.error || "Error"}</div>;
 
   const chartData = data?.compare_chart || [];
   const dist = data?.distribution || { buyers: [], sellers: [], edges: [], dist_start: "-", dist_end: "-" };
@@ -123,6 +104,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
 
   return (
     <div className="space-y-4">
+      {/* ====== BROKER DRILL-DOWN / COMPARE ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Drill-Down</h3>
         <div className="flex flex-wrap gap-3 items-center">
@@ -157,6 +139,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         )}
       </div>
 
+      {/* ====== BROKER FLOW COMPARISON CHART ====== */}
       {compareMode && activeCodes.length > 0 && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
           <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Flow Comparison, {flowMode} in Selected Window</h3>
@@ -177,6 +160,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         </div>
       )}
 
+      {/* ====== BROKER PROFILE FLOW ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Profile Flow</h3>
         {profileFlow.length === 0 ? (
@@ -210,6 +194,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         )}
       </div>
 
+      {/* ====== PROFILE DETAIL ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h3 className="text-sm font-bold text-neutral-200">Profile Detail</h3>
@@ -252,6 +237,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         </div>
       </div>
 
+      {/* ====== BROKER DISTRIBUTION ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Distribution</h3>
         <div className="flex flex-wrap gap-3 mb-3">
@@ -272,6 +258,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         <p className="text-xs text-neutral-500 mb-3">Exact broker-to-broker counterparties are unavailable. The flow chart below falls back to estimated same-day matching based on broker net buy and sell totals.</p>
         <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Broker Distribution, Estimated Matching on {dist.dist_start || "-"}{dist.dist_end !== dist.dist_start ? " to " + dist.dist_end : ""}</h4>
 
+        {/* Buyers */}
         <div className="mb-4">
           <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">Buyers</div>
           <div className="space-y-2">
@@ -288,6 +275,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
           </div>
         </div>
 
+        {/* Sellers */}
         <div>
           <div className="text-xs font-bold text-red-400 uppercase tracking-wider mb-2">Sellers</div>
           <div className="space-y-2">
@@ -304,6 +292,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
           </div>
         </div>
 
+        {/* Estimated Matching */}
         {dist.edges.length > 0 && (
           <div className="mt-4 pt-3 border-t border-neutral-800">
             <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Estimated Matching</div>
@@ -321,6 +310,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         )}
       </div>
 
+      {/* ====== BROKER SUMMARY ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Summary</h3>
         <div className="max-h-96 overflow-y-auto">
@@ -359,6 +349,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
         </div>
       </div>
 
+      {/* ====== DETAILED BROKER ROWS ====== */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Detailed Broker Rows</h3>
         <div className="max-h-96 overflow-y-auto">

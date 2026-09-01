@@ -19,6 +19,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
   const [scanMode, setScanMode] = useState<"ticker" | "all">("ticker");
   const [showIndividual, setShowIndividual] = useState(false);
 
+  // Parameter universe_mode sekarang terkirim dengan benar ke backend
   const url = "/api/bandar/validation-v2/" + ticker + 
               "?analysis_date=" + analysisDate + 
               "&window_days=" + windowDays + 
@@ -26,7 +27,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
               "&min_events=" + minEvents + 
               "&universe_mode=" + universeMode;
               
-  const { data, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 0, revalidateOnFocus: false });
+  const { data, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 0 });
 
   const chartData = useMemo(() => {
     if (!data?.event_study?.chart) return [];
@@ -42,6 +43,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
   const sortedScanData = useMemo(() => {
     if (!data?.broker_scan) return [];
     
+    // Switch data berdasarkan tombol yang diklik
     const rawData = scanMode === "ticker" ? data.broker_scan.ticker : data.broker_scan.all;
     if (!rawData) return [];
 
@@ -60,32 +62,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
     });
   }, [data, scanMode]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-700 shadow-lg h-[450px]">
-          <div className="flex justify-between items-center mb-6">
-            <div className="h-4 w-1/4 bg-neutral-700 rounded"></div>
-            <div className="h-8 w-40 bg-neutral-700 rounded-md"></div>
-          </div>
-          <div className="space-y-3">
-             {[...Array(6)].map((_, i) => <div key={i} className="h-10 bg-neutral-700/50 rounded-lg w-full"></div>)}
-          </div>
-        </div>
-        <div className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-700 shadow-lg h-[600px]">
-           <div className="flex justify-between items-center mb-6">
-            <div className="h-4 w-1/4 bg-neutral-700 rounded"></div>
-            <div className="h-6 w-32 bg-neutral-700 rounded-full"></div>
-          </div>
-          <div className="h-64 bg-neutral-700/30 rounded-lg w-full mb-6"></div>
-          <div className="space-y-3">
-             {[...Array(4)].map((_, i) => <div key={i} className="h-8 bg-neutral-700/50 rounded-lg w-full"></div>)}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  if (isLoading) return <div className="text-neutral-300 font-medium p-4 animate-pulse">Loading validation data...</div>;
   if (error || !data) return <div className="text-red-400 font-bold p-4">Error loading validation data.</div>;
 
   const fmtPct = (val: number | null | undefined) => {

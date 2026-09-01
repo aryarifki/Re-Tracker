@@ -23,33 +23,16 @@ export default function ScreenerTab({ universeMode, analysisDate, windowDays }: 
     revalidateOnFocus: false 
   });
 
-  if (isLoading && !data) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="flex justify-between items-center px-1">
-          <div className="h-6 w-40 bg-neutral-800 rounded"></div>
-          <div className="h-9 w-32 bg-neutral-800 rounded-lg"></div>
-        </div>
-        <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-700 h-[600px]">
-          <div className="flex justify-between mb-6 pb-4 border-b border-neutral-700">
-             <div className="h-6 w-1/3 bg-neutral-700 rounded"></div>
-             <div className="h-10 w-64 bg-neutral-700 rounded-lg"></div>
-          </div>
-          <div className="space-y-3">
-            {[...Array(10)].map((_, i) => <div key={i} className="h-10 bg-neutral-700/50 rounded-lg w-full"></div>)}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  if (isLoading && !data) return <div className="text-neutral-300 font-medium p-8 animate-pulse text-center">Scanning market & compiling metrics...</div>;
   if (error) return <div className="text-red-400 font-bold p-4">Error loading screener data.</div>;
 
   const rawResults = data?.data || [];
   const meta = data?.meta || {};
   
+  // FILTER LIKUIDITAS
   let results = rawResults.filter((r: any) => r.total_value >= minLiq);
   
+  // FILTER AKUMULASI (Diperbaiki: Case-Insensitive)
   if (showOnlyAcc) {
     results = results.filter((r: any) => {
       const sig = (r.signal || "").toUpperCase();
@@ -70,6 +53,7 @@ export default function ScreenerTab({ universeMode, analysisDate, windowDays }: 
   return (
     <div className="space-y-6">
       
+      {/* HEADER CONTROLS */}
       <div className="flex flex-wrap items-center justify-between gap-4 px-1">
         <div className="flex items-center gap-3">
           <button 

@@ -12,43 +12,21 @@ interface CausalityProps {
 }
 
 export default function CausalityTab({ ticker, analysisDate, windowDays }: CausalityProps) {
+  // 1. Fetch Causality Data
   const url = "/api/bandar/causality/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays;
-  const { data: causalityData, error: errorCausality, isLoading: isLoadingCausality } = useSWR(url, fetcher, { refreshInterval: 0, revalidateOnFocus: false });
+  const { data: causalityData, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 0 });
 
+  // 2. Fetch Detail Data MANDIRI
   const detailUrl = "/api/bandar/detail/" + ticker + "?analysis_date=" + analysisDate + "&window_days=" + windowDays + "&horizon=10";
-  const { data: detailData, isLoading: isLoadingDetail } = useSWR(detailUrl, fetcher, { refreshInterval: 0, revalidateOnFocus: false });
+  const { data: detailData } = useSWR(detailUrl, fetcher, { refreshInterval: 0 });
 
-  if (isLoadingCausality || isLoadingDetail) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-neutral-800 border border-neutral-700 rounded-xl p-3 h-24 shadow-md flex flex-col justify-between">
-              <div className="h-3 bg-neutral-700 rounded w-1/2"></div>
-              <div className="h-5 bg-neutral-600 rounded w-3/4"></div>
-              <div className="h-2 bg-neutral-700 rounded w-1/3"></div>
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2].map(i => (
-            <div key={i} className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-700 h-[350px]">
-              <div className="h-4 bg-neutral-600 rounded w-1/3 mb-6"></div>
-              <div className="space-y-3">
-                {[...Array(6)].map((_, j) => <div key={j} className="h-8 bg-neutral-700/50 rounded-lg w-full"></div>)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (errorCausality || !causalityData) return <div className="text-red-400 font-bold p-4">Error loading causality data.</div>;
+  if (isLoading) return <div className="text-neutral-300 font-medium p-4 animate-pulse">Loading causality analysis...</div>;
+  if (error || !causalityData) return <div className="text-red-400 font-bold p-4">Error loading causality data.</div>;
 
   const granger = causalityData.granger_test;
   const score = detailData?.conviction?.score ?? detailData?.conviction_score ?? detailData?.score ?? 0;
   
+  // LOGIKA JENIUS: Jika backend tidak mereturn broker_note, kita ambil dari verdict!
   let brokerNote = detailData?.conviction?.broker_note || detailData?.broker_note;
   if (!brokerNote && detailData?.verdict) {
     const v = detailData.verdict;
@@ -74,7 +52,9 @@ export default function CausalityTab({ ticker, analysisDate, windowDays }: Causa
 
   return (
     <div className="space-y-6">
+      {/* KARTU ATAS (3 KOLOM) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
         <div className={"bg-neutral-800 border border-neutral-700 rounded-xl p-3 border-l-4 shadow-md " + (granger?.is_significant ? "border-emerald-500" : "border-amber-500")}>
           <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Foreign Flow Granger</h3>
           {granger ? (
@@ -111,6 +91,7 @@ export default function CausalityTab({ ticker, analysisDate, windowDays }: Causa
         </div>
       </div>
 
+      {/* TABEL BAWAH */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-neutral-800/80 p-4 rounded-xl border border-neutral-600 flex flex-col h-full shadow-lg">
           <h3 className="text-sm font-bold text-white mb-4">Participant Type Causality</h3>
