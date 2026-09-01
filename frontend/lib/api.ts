@@ -1,52 +1,44 @@
-import type {
-  BrokerFlowHistoryResponse,
-  BrokerFlowRow,
-  BrokerFlowSummary,
-  PriceHistoryResponse,
-} from "@/types";
+// frontend/lib/api.ts
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+export async function fetchWithCache<T>(
+  path: string,
+  revalidateSeconds: number = 60,
+  token?: string // Opsional: injeksi token jika endpoint membutuhkan autentikasi
+): Promise<T | null> {
+  try {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
 
-class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
-
-async function request(path: string) {
-  const url = API_URL + path; // ← tanpa template literal, aman dari bug copy-paste
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = await res.json();
-      detail = body.detail || detail;
-    } catch (err) {
-      /* ignore */
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    throw new ApiError(res.status, detail);
+
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      next: { revalidate: revalidateSeconds },
+      headers,
+    });
+
+    if (!res.ok) {
+      // Penanganan khusus jika token expired / unauthorized
+      if (res.status === 401 || res.status === 403) {
+        console.warn(`[API Auth Error] Token invalid/expired untuk path: ${path}`);
+        // Anda bisa menambahkan logika trigger logout di sini jika diperlukan
+        return null; 
+      }
+
+      const errorBody = await res.json().catch(() => null);
+      console.error(`[API Error ${res.status}] ${path}:`, errorBody?.detail || res.statusText);
+      
+      // Mengembalikan null alih-alih melempar error agar komponen UI bisa me-render fallback
+      return null;
+    }
+
+    return await res.json();
+  } catch (error) {
+    // Menangkap error jaringan (misal: backend mati/timeout)
+    console.error(`[Network Error] Gagal fetch ${path}:`, error);
+    return null;
   }
-  return res.json();
 }
-
-export function fetchStockHistory(ticker: string, limit: number = 250) {
-  return request("/stocks/" + ticker + "/history?limit=" + limit) as Promise<PriceHistoryResponse>;
-}
-
-export function fetchBrokerLatest(ticker: string) {
-  return request("/broker-flow/" + ticker + "/latest") as Promise<BrokerFlowRow>;
-}
-
-export function fetchBrokerHistory(ticker: string, limit: number = 60) {
-  return request("/broker-flow/" + ticker + "/history?limit=" + limit) as Promise<BrokerFlowHistoryResponse>;
-}
-
-export function fetchBrokerSummary(ticker: string, days: number = 30) {
-  return request("/broker-flow/" + ticker + "/summary?days=" + days) as Promise<BrokerFlowSummary>;
-}
-
-export { ApiError };
