@@ -1,3 +1,5 @@
+"use client";
+
 export default function Sparkline({ data, up }: { data: number[]; up: boolean }) {
   if (!data || data.length < 2) return null;
 
