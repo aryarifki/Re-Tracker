@@ -10,6 +10,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from ..idx_bridge import analysis, storage, universe, pipeline
+from idx_bandarmology import analysis as lib_analysis  # FIX: Direct library import for Causality
 
 router = APIRouter(prefix="/api/bandar", tags=["bandarmology"])
 
@@ -89,7 +90,6 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
     flow_win = flow_df[(flow_df["date"] >= win_start) & (flow_df["date"] <= ts)]
     act_win = activity_df[(activity_df["date"] >= win_start) & (activity_df["date"] <= ts)]
 
-    # ── Return harga ──
     def ret(periods: int):
         sub = price_df[price_df["date"] <= ts].sort_values("date")
         if len(sub) <= periods:
@@ -99,24 +99,24 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
             return None
         return float(sub.iloc[-1]["close"]) / base - 1
 
-    # ── Foreign net 5 hari ──
     foreign_5d = None
     if not flow_win.empty and "foreign_net_broker" in flow_win.columns:
         foreign_5d = float(
             flow_win.sort_values("date").tail(5)["foreign_net_broker"].fillna(0).sum()
         )
 
-    # ── Top brokers ──
     top_buy, top_sell = analysis.top_net_broker_summary(ticker, trade_date=ts, top_n=6)
 
-    # ── Sinyal terakhir ──
     signal_row = {}
     if not flow_win.empty:
         signal_row = flow_win.sort_values("date").iloc[-1].to_dict()
 
-    # ── Conviction score (replica bobot app.py) ──
-    causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
-    p = None if causality is None else causality.get("min_p_value")
+    try:
+        causality_res = lib_analysis.causality_foreign_vs_price(ticker, max_lags=5)
+    except Exception:
+        causality_res = None
+        
+    p = None if causality_res is None else causality_res.get("min_p_value")
     if p is None or pd.isna(p):
         p_score = 50
     elif p <= 0.01:
@@ -143,21 +143,23 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
         f_score = 100 if foreign_5d > 0 else (0 if foreign_5d < 0 else 50)
 
     w_score, w_note = 50.0, "No broker validation sample"
-    scan = analysis.broker_alpha_scan(
-        [ticker], horizon=10, min_events=5, min_net_value=0,
-        group_by=("ticker", "broker_code"),
-    )
-    if not scan.empty:
-        r = scan.sort_values(
-            ["significant", "p_value_one_sided", "mean_fwd_return"],
-            ascending=[False, True, False],
-        ).iloc[0]
-        w_score = max(0.0, min(100.0, float(r.get("win_rate", 0.5)) * 100))
-        w_note = r["broker_code"] + " win rate " + format(r["win_rate"], ".0%")
+    try:
+        scan = analysis.broker_alpha_scan(
+            [ticker], horizon=10, min_events=5, min_net_value=0,
+            group_by=("ticker", "broker_code"),
+        )
+        if not scan.empty:
+            r = scan.sort_values(
+                ["significant", "p_value_one_sided", "mean_fwd_return"],
+                ascending=[False, True, False],
+            ).iloc[0]
+            w_score = max(0.0, min(100.0, float(r.get("win_rate", 0.5)) * 100))
+            w_note = r["broker_code"] + " win rate " + format(r["win_rate"], ".0%")
+    except Exception:
+        pass
 
     score = p_score * 0.30 + s_score * 0.30 + f_score * 0.20 + w_score * 0.20
 
-    # ── Smart cumulative ──
     smart_cum = None
     if not act_win.empty and "broker_code" in act_win.columns:
         act_win = act_win.copy()
@@ -243,9 +245,19 @@ def broker_compare(ticker: str, window: int = 30, mode: str = "cumulative"):
 @router.get("/stocks/{ticker}/causality")
 def causality(ticker: str):
     ticker = ticker.upper()
-    f = analysis.causality_foreign_vs_price(ticker, max_lags=5)
-    part = analysis.causality_by_participant(ticker, max_lags=5)
-    broker = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
+    try:
+        f = lib_analysis.causality_foreign_vs_price(ticker, max_lags=5)
+    except Exception:
+        f = None
+    try:
+        part = lib_analysis.causality_by_participant(ticker, max_lags=5)
+    except Exception:
+        part = pd.DataFrame()
+    try:
+        broker = lib_analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
+    except Exception:
+        broker = pd.DataFrame()
+        
     return _clean({
         "foreign": f,
         "participants": part.to_dict("records") if part is not None and not part.empty else [],
@@ -553,15 +565,17 @@ def _broker_win_component(scan_df, ticker):
 
 def _conviction_score(signal, foreign_5d, scan_df, ticker):
     try:
-        causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
+        causality = lib_analysis.causality_foreign_vs_price(ticker.upper(), max_lags=5)
     except Exception:
         causality = None
+        
     p_value = None if not causality else float(causality.get("min_p_value", np.nan))
     p_score = _p_value_component(p_value)
     s_score = _label_component(signal)
     f_score = _foreign_component(foreign_5d)
     w_score, w_note = _broker_win_component(scan_df, ticker)
     score = (p_score * 0.30) + (s_score * 0.30) + (f_score * 0.20) + (w_score * 0.20)
+    
     return {
         "score": round(float(score), 1),
         "p_value": None if p_value is None or pd.isna(p_value) else float(p_value),
@@ -838,7 +852,6 @@ def ticker_detail(
             + "win rate " + "{:.0%}".format(best["win_rate"]) + ", p-value " + "{:.4f}".format(best["p_value_one_sided"]) + "."
         )
 
-    # Top broker compact table
     broker_summary_rows = []
     for side, df in (("Buy", top_buy.head(3)), ("Sell", top_sell.head(3))):
         for _, row in df.iterrows():
@@ -850,7 +863,6 @@ def ticker_detail(
                 "spark": _sparkline_values(activity_df, row["broker_code"], analysis_ts),
             })
 
-    # Price performance
     try:
         perf = analysis.price_performance_table(ticker)
         perf = perf[perf["timeframe"].isin(["1D", "1W", "1M", "3M", "6M", "YTD"])]
@@ -858,13 +870,11 @@ def ticker_detail(
     except Exception:
         perf_rows = []
 
-    # Profile compact
     profile_rows = []
     if not profile_df.empty:
         for _, row in profile_df.sort_values("net", ascending=False).head(6).iterrows():
             profile_rows.append({"label": row["label"], "net": float(row["net"])})
 
-    # Smart daily for chart
     smart_daily_rows = []
     if not daily_smart.empty:
         for _, row in daily_smart.iterrows():
@@ -874,7 +884,6 @@ def ticker_detail(
                 "cumulative_net": float(row["cumulative_net"]),
             })
 
-    # Price context for chart
     price_chart_rows = []
     if not price_window.empty:
         for _, row in price_window.iterrows():
@@ -884,7 +893,6 @@ def ticker_detail(
                 "volume": float(row["volume"]) if "volume" in row and pd.notna(row["volume"]) else None,
             })
 
-    # Signal overlay
     signal_overlay = []
     if not broker_window.empty:
         br_overlay = broker_window[["date", "bandar_signal", "bandar_signal_score"]].copy()
@@ -1003,7 +1011,6 @@ def _broker_distribution_data(activity, dist_start, dist_end):
     buyers = dist[dist["net_value"] > 0].copy().sort_values("net_value", ascending=False)
     sellers = dist[dist["net_value"] < 0].copy().sort_values("net_value", ascending=True)
 
-    # Estimated matching (greedy algorithm dari app.py)
     buyer_rows = buyers.head(8).reset_index(drop=True)
     seller_rows = sellers.head(8).reset_index(drop=True)
     buyer_rows["remaining"] = buyer_rows["net_value"].astype(float)
@@ -1209,18 +1216,19 @@ def broker_flow_detail(
 
 @router.get("/causality/{ticker}")
 def causality_insight(ticker: str, analysis_date: str = None, window_days: int = None):
+    ticker = ticker.upper()
     try:
-        foreign_causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
+        foreign_causality = lib_analysis.causality_foreign_vs_price(ticker, max_lags=5)
     except Exception:
         foreign_causality = None
         
     try:
-        part_causality = analysis.causality_by_participant(ticker, max_lags=5)
+        part_causality = lib_analysis.causality_by_participant(ticker, max_lags=5)
     except Exception:
         part_causality = pd.DataFrame()
         
     try:
-        broker_causality = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
+        broker_causality = lib_analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
     except Exception:
         broker_causality = pd.DataFrame()
 
@@ -1594,7 +1602,6 @@ def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20
     def _clean_date(d):
         return str(pd.Timestamp(d).date()) if pd.notna(d) else "-"
 
-    # 1. BROKER FLOW ROWS
     flow_list = []
     try:
         flow_df = storage.read_broker_flow([ticker])
@@ -1615,7 +1622,6 @@ def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20
     except Exception:
         pass
         
-    # 2. BROKER ACTIVITY ROWS
     act_list = []
     try:
         act_df = storage.read_broker_activity([ticker])
@@ -1641,3 +1647,4 @@ def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20
         pass
         
     return _clean({"flow": flow_list, "activity": act_list})
+    
