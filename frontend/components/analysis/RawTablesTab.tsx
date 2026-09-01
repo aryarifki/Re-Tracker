@@ -20,7 +20,31 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
   const url = `/api/bandar/stocks/${ticker}/raw-tables?analysis_date=${analysisDate}&window_days=${windowDays}`;
   const { data, error, isLoading, isValidating, mutate } = useSWR(url, fetcher, { revalidateOnFocus: false });
 
-  if (isLoading && !data) return <div className="text-neutral-300 font-medium p-8 animate-pulse text-center text-xs">Extracting raw database records...</div>;
+  if (isLoading && !data) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg h-[400px]">
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-neutral-800">
+            <div className="h-4 bg-neutral-800 rounded w-40"></div>
+            <div className="h-6 bg-neutral-800 rounded w-24"></div>
+          </div>
+          <div className="space-y-3">
+            {[...Array(8)].map((_, i) => <div key={i} className="h-8 bg-neutral-800 rounded-lg w-full"></div>)}
+          </div>
+        </div>
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg h-[550px]">
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-neutral-800">
+            <div className="h-4 bg-neutral-800 rounded w-40"></div>
+            <div className="h-8 bg-neutral-800 rounded w-48"></div>
+          </div>
+          <div className="space-y-3">
+            {[...Array(10)].map((_, i) => <div key={i} className="h-8 bg-neutral-800 rounded-lg w-full"></div>)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error) return <div className="text-red-400 font-bold p-4 text-xs">Error loading raw tables.</div>;
 
   const flowRows = data?.flow || [];
@@ -63,10 +87,7 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
   return (
     <div className="space-y-4">
       
-      {/* TABLE 1: BROKER FLOW ROWS */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg">
-        
-        {/* HEADER DIPERBARUI: Judul dan Tombol Refresh sejajar */}
         <div className="flex flex-row justify-between items-center mb-3 border-b border-neutral-800 pb-2">
             <div className="flex items-center gap-2">
                 <Icon icon="mdi:table-large" className="text-blue-400" width="18" height="18" />
@@ -129,7 +150,6 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
         </div>
       </div>
 
-      {/* TABLE 2: BROKER ACTIVITY ROWS */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg flex flex-col h-[550px]">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-3 border-b border-neutral-800 pb-2 flex-shrink-0">
             <div className="flex items-center gap-2">
