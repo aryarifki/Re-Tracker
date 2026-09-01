@@ -1,13 +1,14 @@
-"""PostgreSQL storage — SQLAlchemy edition.
+"""PostgreSQL storage — SQLAlchemy edition (Optimized & Indexed).
 
 Replaces raw psycopg2 connections with SQLAlchemy engine for full pandas
-compatibility (no more DBAPI2 warnings) while keeping bulk-upsert
-performance via raw psycopg2 connections from the SQLAlchemy pool.
+compatibility while keeping bulk-upsert performance via raw psycopg2 
+connections from the SQLAlchemy pool with explicit date-filtering.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
+from typing import Sequence
 
 import pandas as pd
 import psycopg2
@@ -16,8 +17,14 @@ from sqlalchemy import create_engine, text
 
 from . import config
 
-# SQLAlchemy engine — pandas fully supports this as a connectable
-engine = create_engine(config.DATABASE_URL, pool_pre_ping=True)
+# SQLAlchemy engine dengan Connection Pool yang stabil untuk FastAPI
+engine = create_engine(
+    config.DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10,
+    pool_recycle=1800,
+)
 
 # ── schema ───────────────────────────────────────────────────────────────────
 _SCHEMA = """
@@ -84,9 +91,13 @@ CREATE TABLE IF NOT EXISTS tickers (
     updated_at  TIMESTAMP
 );
 
+-- Indeks komposit dan indeks tanggal tunggal untuk akselerasi query
 CREATE INDEX IF NOT EXISTS idx_prices_ticker_date ON prices(ticker, date);
+CREATE INDEX IF NOT EXISTS idx_prices_date ON prices(date);
 CREATE INDEX IF NOT EXISTS idx_broker_flow_ticker_date ON broker_flow(ticker, date);
+CREATE INDEX IF NOT EXISTS idx_broker_flow_date ON broker_flow(date);
 CREATE INDEX IF NOT EXISTS idx_broker_activity_ticker_date ON broker_activity(ticker, date);
+CREATE INDEX IF NOT EXISTS idx_broker_activity_date ON broker_activity(date);
 CREATE INDEX IF NOT EXISTS idx_broker_activity_broker ON broker_activity(broker_code);
 CREATE INDEX IF NOT EXISTS idx_tickers_sector ON tickers(sector);
 CREATE INDEX IF NOT EXISTS idx_tickers_board ON tickers(board);
@@ -106,7 +117,7 @@ def _clean_numeric_df(df: pd.DataFrame) -> pd.DataFrame:
     """Replace NaN/inf with None so PostgreSQL accepts them."""
     df = df.copy()
     for col in df.columns:
-        if df[col].dtype.kind in "fc":  # float or complex
+        if df[col].dtype.kind in "fc":
             df[col] = df[col].replace([float("inf"), float("-inf")], None)
             df[col] = df[col].where(df[col].notna(), None)
     return df
@@ -134,15 +145,14 @@ def upsert_prices(df: pd.DataFrame) -> int:
                 INSERT INTO prices (date, ticker, open, high, low, close, volume)
                 VALUES %s
                 ON CONFLICT (date, ticker) DO UPDATE SET
-                  open = EXCLUDED.open,
-                  high = EXCLUDED.high,
-                  low = EXCLUDED.low,
-                  close = EXCLUDED.close,
-                  volume = EXCLUDED.volume
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume
                 """,
                 rows,
-                template=None,
-                page_size=1000,
+                page_size=2000,
             )
         raw_conn.commit()
     finally:
@@ -180,21 +190,21 @@ def upsert_broker_flow(df: pd.DataFrame) -> int:
                 )
                 VALUES %s
                 ON CONFLICT (date, ticker) DO UPDATE SET
-                  bandar_signal = EXCLUDED.bandar_signal,
-                  bandar_signal_score = EXCLUDED.bandar_signal_score,
-                  foreign_net_broker = EXCLUDED.foreign_net_broker,
-                  local_net_broker = EXCLUDED.local_net_broker,
-                  gov_net_broker = EXCLUDED.gov_net_broker,
-                  foreign_net_flow = EXCLUDED.foreign_net_flow,
-                  domestic_net_flow = EXCLUDED.domestic_net_flow,
-                  total_value = EXCLUDED.total_value,
-                  foreign_signal = EXCLUDED.foreign_signal,
-                  conclusion_broker = EXCLUDED.conclusion_broker,
-                  conclusion_flow = EXCLUDED.conclusion_flow,
-                  fetched_at = EXCLUDED.fetched_at
+                    bandar_signal = EXCLUDED.bandar_signal,
+                    bandar_signal_score = EXCLUDED.bandar_signal_score,
+                    foreign_net_broker = EXCLUDED.foreign_net_broker,
+                    local_net_broker = EXCLUDED.local_net_broker,
+                    gov_net_broker = EXCLUDED.gov_net_broker,
+                    foreign_net_flow = EXCLUDED.foreign_net_flow,
+                    domestic_net_flow = EXCLUDED.domestic_net_flow,
+                    total_value = EXCLUDED.total_value,
+                    foreign_signal = EXCLUDED.foreign_signal,
+                    conclusion_broker = EXCLUDED.conclusion_broker,
+                    conclusion_flow = EXCLUDED.conclusion_flow,
+                    fetched_at = EXCLUDED.fetched_at
                 """,
                 rows,
-                page_size=1000,
+                page_size=2000,
             )
         raw_conn.commit()
     finally:
@@ -232,19 +242,19 @@ def upsert_broker_activity(df: pd.DataFrame) -> int:
                 )
                 VALUES %s
                 ON CONFLICT (date, ticker, broker_code) DO UPDATE SET
-                  participant_type = EXCLUDED.participant_type,
-                  buy_value = EXCLUDED.buy_value,
-                  sell_value = EXCLUDED.sell_value,
-                  net_value = EXCLUDED.net_value,
-                  buy_lot = EXCLUDED.buy_lot,
-                  sell_lot = EXCLUDED.sell_lot,
-                  frequency = EXCLUDED.frequency,
-                  buy_avg_price = EXCLUDED.buy_avg_price,
-                  sell_avg_price = EXCLUDED.sell_avg_price,
-                  fetched_at = EXCLUDED.fetched_at
+                    participant_type = EXCLUDED.participant_type,
+                    buy_value = EXCLUDED.buy_value,
+                    sell_value = EXCLUDED.sell_value,
+                    net_value = EXCLUDED.net_value,
+                    buy_lot = EXCLUDED.buy_lot,
+                    sell_lot = EXCLUDED.sell_lot,
+                    frequency = EXCLUDED.frequency,
+                    buy_avg_price = EXCLUDED.buy_avg_price,
+                    sell_avg_price = EXCLUDED.sell_avg_price,
+                    fetched_at = EXCLUDED.fetched_at
                 """,
                 rows,
-                page_size=1000,
+                page_size=2000,
             )
         raw_conn.commit()
     finally:
@@ -253,15 +263,16 @@ def upsert_broker_activity(df: pd.DataFrame) -> int:
 
 
 def log_run(tickers: list[str], n_prices: int, n_broker: int, notes: str = "") -> None:
+    init_db()
     with engine.begin() as conn:
         conn.execute(
-            text(
-                "INSERT INTO runs (run_at, tickers, n_prices, n_broker, notes) "
-                "VALUES (:run_at, :tickers, :n_prices, :n_broker, :notes)"
-            ),
+            text("""
+                INSERT INTO runs (run_at, tickers, n_prices, n_broker, notes)
+                VALUES (:run_at, :tickers, :n_prices, :n_broker, :notes)
+            """),
             {
                 "run_at": datetime.now(timezone.utc),
-                "tickers": ",".join(tickers),
+                "tickers": ",".join(t.upper() for t in tickers),
                 "n_prices": n_prices,
                 "n_broker": n_broker,
                 "notes": notes,
@@ -269,47 +280,86 @@ def log_run(tickers: list[str], n_prices: int, n_broker: int, notes: str = "") -
         )
 
 
-def read_prices(tickers: list[str] | None = None) -> pd.DataFrame:
+def read_prices(
+    tickers: Sequence[str] | None = None,
+    start_date: str | date | None = None,
+    end_date: str | date | None = None,
+) -> pd.DataFrame:
+    """Read prices with optional ticker and date-range filtering pushed down to SQL."""
     init_db()
-    q = "SELECT * FROM prices"
-    params = None
+    clauses = []
+    params: dict[str, object] = {}
     if tickers:
-        q += " WHERE ticker = ANY(:tickers)"
-        params = {"tickers": [t.upper() for t in tickers]}
+        clauses.append("ticker = ANY(:tickers)")
+        params["tickers"] = [t.upper() for t in tickers]
+    if start_date:
+        clauses.append("date >= :start_date")
+        params["start_date"] = str(start_date)
+    if end_date:
+        clauses.append("date <= :end_date")
+        params["end_date"] = str(end_date)
+    
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    q = f"SELECT * FROM prices{where} ORDER BY ticker, date ASC"
     with engine.connect() as conn:
-        df = pd.read_sql(text(q), conn, params=params, parse_dates=["date"])
-    return df.sort_values(["ticker", "date"]).reset_index(drop=True)
+        return pd.read_sql(text(q), conn, params=params, parse_dates=["date"])
 
 
-def read_broker_flow(tickers: list[str] | None = None) -> pd.DataFrame:
+def read_broker_flow(
+    tickers: Sequence[str] | None = None,
+    start_date: str | date | None = None,
+    end_date: str | date | None = None,
+) -> pd.DataFrame:
+    """Read broker flow with optional ticker and date-range filtering."""
     init_db()
-    q = "SELECT * FROM broker_flow"
-    params = None
+    clauses = []
+    params: dict[str, object] = {}
     if tickers:
-        q += " WHERE ticker = ANY(:tickers)"
-        params = {"tickers": [t.upper() for t in tickers]}
+        clauses.append("ticker = ANY(:tickers)")
+        params["tickers"] = [t.upper() for t in tickers]
+    if start_date:
+        clauses.append("date >= :start_date")
+        params["start_date"] = str(start_date)
+    if end_date:
+        clauses.append("date <= :end_date")
+        params["end_date"] = str(end_date)
+
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    q = f"SELECT * FROM broker_flow{where} ORDER BY ticker, date ASC"
     with engine.connect() as conn:
-        df = pd.read_sql(text(q), conn, params=params, parse_dates=["date"])
-    return df.sort_values(["ticker", "date"]).reset_index(drop=True)
+        return pd.read_sql(text(q), conn, params=params, parse_dates=["date"])
 
 
-def read_broker_activity(tickers: list[str] | None = None) -> pd.DataFrame:
+def read_broker_activity(
+    tickers: Sequence[str] | None = None,
+    start_date: str | date | None = None,
+    end_date: str | date | None = None,
+) -> pd.DataFrame:
+    """Read broker activity with optional ticker and date-range filtering."""
     init_db()
-    q = "SELECT * FROM broker_activity"
-    params = None
+    clauses = []
+    params: dict[str, object] = {}
     if tickers:
-        q += " WHERE ticker = ANY(:tickers)"
-        params = {"tickers": [t.upper() for t in tickers]}
+        clauses.append("ticker = ANY(:tickers)")
+        params["tickers"] = [t.upper() for t in tickers]
+    if start_date:
+        clauses.append("date >= :start_date")
+        params["start_date"] = str(start_date)
+    if end_date:
+        clauses.append("date <= :end_date")
+        params["end_date"] = str(end_date)
+
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    q = f"SELECT * FROM broker_activity{where} ORDER BY ticker, date ASC, net_value DESC"
     with engine.connect() as conn:
-        df = pd.read_sql(text(q), conn, params=params, parse_dates=["date"])
-    return df.sort_values(["ticker", "date", "net_value"], ascending=[True, True, False]).reset_index(drop=True)
+        return pd.read_sql(text(q), conn, params=params, parse_dates=["date"])
 
 
 def read_runs() -> pd.DataFrame:
     init_db()
     with engine.connect() as conn:
         return pd.read_sql(
-            text("SELECT * FROM runs ORDER BY run_at DESC"),
+            text("SELECT * FROM runs ORDER BY run_at DESC LIMIT 50"),
             conn,
             parse_dates=["run_at"],
         )
