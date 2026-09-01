@@ -1,57 +1,25 @@
-"""Router bandarmology — membungkus fungsi paket idx_bandarmology."""
-import math
-import time
-import threading
-from datetime import date
-from collections import Counter
-
 import numpy as np
+"""Router bandarmology — membungkus fungsi paket idx_bandarmology."""
+from datetime import date
+import threading
+
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from ..idx_bridge import analysis, storage, universe, pipeline
-from idx_bandarmology import analysis as lib_analysis  # FIX: Direct library import for Causality
 
 router = APIRouter(prefix="/api/bandar", tags=["bandarmology"])
-
-
-# ══════════════════════════════════════════════════════════
-# UTILITAS GLOBAL (JSON Cleaner & Unified TTL Cache)
-# ══════════════════════════════════════════════════════════
+import math
 
 def _clean(obj):
-    """Ganti NaN/Inf menjadi None agar valid JSON, dan ekstrak numpy types."""
+    """Ganti NaN/Inf menjadi None agar valid JSON."""
     if isinstance(obj, dict):
         return {k: _clean(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_clean(v) for v in obj]
     if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
         return None
-    if hasattr(obj, "item"):
-        return obj.item()
     return obj
-
-# Memori sentral dengan struktur: { "namespace": { "cache_key": {"ts": timestamp, "data": payload} } }
-_CACHE_STORE = {
-    "summary": {},
-    "detail": {},
-    "brokerflow": {},
-    "screener": {}
-}
-
-def _get_cache(namespace: str, key: str, ttl_seconds: int):
-    """Mengambil data dari cache jika TTL belum kedaluwarsa secara spesifik untuk kunci/parameter tersebut."""
-    now = time.time()
-    cache_pool = _CACHE_STORE[namespace]
-    if key in cache_pool:
-        entry = cache_pool[key]
-        if (now - entry["ts"]) < ttl_seconds:
-            return entry["data"]
-    return None
-
-def _set_cache(namespace: str, key: str, data: dict):
-    """Menyimpan data ke cache dengan timestamp waktu nyata."""
-    _CACHE_STORE[namespace][key] = {"ts": time.time(), "data": data}
 
 
 # ══════════════════════════════════════════════════════════
@@ -90,6 +58,7 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
     flow_win = flow_df[(flow_df["date"] >= win_start) & (flow_df["date"] <= ts)]
     act_win = activity_df[(activity_df["date"] >= win_start) & (activity_df["date"] <= ts)]
 
+    # ── Return harga ──
     def ret(periods: int):
         sub = price_df[price_df["date"] <= ts].sort_values("date")
         if len(sub) <= periods:
@@ -99,25 +68,25 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
             return None
         return float(sub.iloc[-1]["close"]) / base - 1
 
+    # ── Foreign net 5 hari ──
     foreign_5d = None
     if not flow_win.empty and "foreign_net_broker" in flow_win.columns:
         foreign_5d = float(
             flow_win.sort_values("date").tail(5)["foreign_net_broker"].fillna(0).sum()
         )
 
+    # ── Top brokers ──
     top_buy, top_sell = analysis.top_net_broker_summary(ticker, trade_date=ts, top_n=6)
 
+    # ── Sinyal terakhir ──
     signal_row = {}
     if not flow_win.empty:
         signal_row = flow_win.sort_values("date").iloc[-1].to_dict()
 
-    try:
-        causality_res = lib_analysis.causality_foreign_vs_price(ticker, max_lags=5)
-    except Exception:
-        causality_res = None
-        
-    p = None if causality_res is None else causality_res.get("min_p_value")
-    if p is None or pd.isna(p):
+    # ── Conviction score (replica bobot app.py) ──
+    causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
+    p = None if causality is None else causality.get("min_p_value")
+    if p is None or p != p:  # None atau NaN
         p_score = 50
     elif p <= 0.01:
         p_score = 100
@@ -143,23 +112,21 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
         f_score = 100 if foreign_5d > 0 else (0 if foreign_5d < 0 else 50)
 
     w_score, w_note = 50.0, "No broker validation sample"
-    try:
-        scan = analysis.broker_alpha_scan(
-            [ticker], horizon=10, min_events=5, min_net_value=0,
-            group_by=("ticker", "broker_code"),
-        )
-        if not scan.empty:
-            r = scan.sort_values(
-                ["significant", "p_value_one_sided", "mean_fwd_return"],
-                ascending=[False, True, False],
-            ).iloc[0]
-            w_score = max(0.0, min(100.0, float(r.get("win_rate", 0.5)) * 100))
-            w_note = r["broker_code"] + " win rate " + format(r["win_rate"], ".0%")
-    except Exception:
-        pass
+    scan = analysis.broker_alpha_scan(
+        [ticker], horizon=10, min_events=5, min_net_value=0,
+        group_by=("ticker", "broker_code"),
+    )
+    if not scan.empty:
+        r = scan.sort_values(
+            ["significant", "p_value_one_sided", "mean_fwd_return"],
+            ascending=[False, True, False],
+        ).iloc[0]
+        w_score = max(0.0, min(100.0, float(r.get("win_rate", 0.5)) * 100))
+        w_note = r["broker_code"] + " win rate " + format(r["win_rate"], ".0%")
 
     score = p_score * 0.30 + s_score * 0.30 + f_score * 0.20 + w_score * 0.20
 
+    # ── Smart cumulative ──
     smart_cum = None
     if not act_win.empty and "broker_code" in act_win.columns:
         act_win = act_win.copy()
@@ -237,7 +204,7 @@ def broker_compare(ticker: str, window: int = 30, mode: str = "cumulative"):
         rec = {"date": str(idx)}
         for c in pivot.columns:
             v = row[c]
-            rec[c] = float(v) if v == v else None
+            rec[c] = float(v) if v == v else None  # NaN -> None
         data.append(rec)
     return {"data": data}
 
@@ -245,19 +212,9 @@ def broker_compare(ticker: str, window: int = 30, mode: str = "cumulative"):
 @router.get("/stocks/{ticker}/causality")
 def causality(ticker: str):
     ticker = ticker.upper()
-    try:
-        f = lib_analysis.causality_foreign_vs_price(ticker, max_lags=5)
-    except Exception:
-        f = None
-    try:
-        part = lib_analysis.causality_by_participant(ticker, max_lags=5)
-    except Exception:
-        part = pd.DataFrame()
-    try:
-        broker = lib_analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
-    except Exception:
-        broker = pd.DataFrame()
-        
+    f = analysis.causality_foreign_vs_price(ticker, max_lags=5)
+    part = analysis.causality_by_participant(ticker, max_lags=5)
+    broker = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
     return _clean({
         "foreign": f,
         "participants": part.to_dict("records") if part is not None and not part.empty else [],
@@ -312,6 +269,7 @@ def raw_tables(ticker: str, window: int = 30):
         d["date"] = pd.to_datetime(d["date"])
         w = d[(d["date"] >= start) & (d["date"] <= end)].copy()
         w["date"] = w["date"].astype(str)
+        # Ubah ke object dulu agar None benar-benar bisa menggantikan NaN
         w = w.astype(object).where(pd.notna(w), None)
         return w.to_dict("records")
 
@@ -359,20 +317,20 @@ def backfill(tickers: str = "BBCA", start: str = "2024-01-01", end: str | None =
 
     threading.Thread(target=_job, daemon=True).start()
     return {"status": "started", "tickers": tickers.split(","), "start": start}
-
-
 # ══════════════════════════════════════════════════════════
-# Daily Summary — dengan mekanisme Cache
+# Daily Summary — dengan cache 5 menit (universe all = 962 ticker)
 # ══════════════════════════════════════════════════════════
+
+_SUMMARY_CACHE: dict = {"ts": 0.0, "data": None}
 
 @router.get("/daily-summary")
 def daily_summary(universe_mode: str = "all", refresh: int = 0):
-    cache_key = f"{universe_mode}"
-    
-    if not refresh:
-        cached = _get_cache("summary", cache_key, 300)
-        if cached:
-            return cached
+    import time as _time
+
+    now = _time.time()
+    cached = _SUMMARY_CACHE["data"]
+    if cached is not None and not refresh and (now - _SUMMARY_CACHE["ts"]) < 300:
+        return cached
 
     tickers = universe.get_universe(mode=universe_mode)
     price_df = storage.read_prices(tickers)
@@ -411,6 +369,7 @@ def daily_summary(universe_mode: str = "all", refresh: int = 0):
             except Exception:
                 continue
 
+    from collections import Counter
     counts = Counter((i["signal"] or "NETRAL").upper() for i in items)
     top = sorted(items, key=lambda x: (x["signal_score"] or 0), reverse=True)[:5]
 
@@ -421,13 +380,27 @@ def daily_summary(universe_mode: str = "all", refresh: int = 0):
         "top_conviction": top,
     })
 
-    _set_cache("summary", cache_key, result)
+    _SUMMARY_CACHE["ts"] = now
+    _SUMMARY_CACHE["data"] = result
     return result
 
+# ============================================================
+# Ticker Detail Endpoint — replika app.py Streamlit
+# ============================================================
 
-# ============================================================
-# Ticker Detail Endpoint
-# ============================================================
+_DETAIL_CACHE: dict = {"ts": 0.0, "data": {}}
+
+def _clean_detail(obj):
+    if isinstance(obj, dict):
+        return {k: _clean_detail(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_detail(v) for v in obj]
+    if isinstance(obj, float) and (pd.isna(obj) or np.isinf(obj)):
+        return None
+    if hasattr(obj, "item"):
+        return obj.item()
+    return obj
+
 
 def _fmt_signal(value):
     if value is None or pd.isna(value):
@@ -565,17 +538,15 @@ def _broker_win_component(scan_df, ticker):
 
 def _conviction_score(signal, foreign_5d, scan_df, ticker):
     try:
-        causality = lib_analysis.causality_foreign_vs_price(ticker.upper(), max_lags=5)
+        causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
     except Exception:
         causality = None
-        
     p_value = None if not causality else float(causality.get("min_p_value", np.nan))
     p_score = _p_value_component(p_value)
     s_score = _label_component(signal)
     f_score = _foreign_component(foreign_5d)
     w_score, w_note = _broker_win_component(scan_df, ticker)
     score = (p_score * 0.30) + (s_score * 0.30) + (f_score * 0.20) + (w_score * 0.20)
-    
     return {
         "score": round(float(score), 1),
         "p_value": None if p_value is None or pd.isna(p_value) else float(p_value),
@@ -625,6 +596,14 @@ def _profile_flow_from_activity(activity):
         .reset_index()
     )
     rows = []
+    PROFILE_META = {
+        "smart_foreign": ("Foreign Smart Money", "Directional foreign institutions"),
+        "local_institutional": ("Local Institutions", "Local institution-like accounts"),
+        "market_maker": ("Market Makers", "Active on both sides; net position matters"),
+        "bandar_gorengan": ("Speculative Operators", "Speculative operator profile"),
+        "retail": ("Retail-Dominant", "Retail-heavy platforms"),
+        "lainnya": ("Other Brokers", "Outside defined behavioral profiles"),
+    }
     for profile, (label, desc) in PROFILE_META.items():
         members = broker_rows[broker_rows["profile"] == profile].copy()
         if members.empty:
@@ -662,6 +641,14 @@ def _profile_broker_detail_table(activity, profile_key=None):
         )
         .reset_index()
     )
+    PROFILE_META = {
+        "smart_foreign": ("Foreign Smart Money", ""),
+        "local_institutional": ("Local Institutions", ""),
+        "market_maker": ("Market Makers", ""),
+        "bandar_gorengan": ("Speculative Operators", ""),
+        "retail": ("Retail-Dominant", ""),
+        "lainnya": ("Other Brokers", ""),
+    }
     grouped["profile_label"] = grouped["profile"].map(lambda key: PROFILE_META.get(key, (key, ""))[0])
     grouped["type_label"] = grouped["participant_type"].map(lambda v: {"Asing": "FOREIGN", "Lokal": "LOCAL", "Pemerintah": "GOV"}.get(str(v), str(v or "-")))
     grouped["avg_value_tx"] = grouped.apply(
@@ -784,9 +771,11 @@ def ticker_detail(
     min_events: int = 5,
     min_net_buy_b: float = 0.0,
 ):
-    cache_key = f"{ticker}|{analysis_date}|{window_days}|{horizon}"
-    cached = _get_cache("detail", cache_key, 300)
-    if cached:
+    import time as _time
+    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(horizon)
+    now = _time.time()
+    cached = _DETAIL_CACHE["data"].get(cache_key)
+    if cached is not None and (now - _DETAIL_CACHE["ts"]) < 300:
         return cached
 
     ticker = ticker.upper().strip()
@@ -852,6 +841,7 @@ def ticker_detail(
             + "win rate " + "{:.0%}".format(best["win_rate"]) + ", p-value " + "{:.4f}".format(best["p_value_one_sided"]) + "."
         )
 
+    # Top broker compact table
     broker_summary_rows = []
     for side, df in (("Buy", top_buy.head(3)), ("Sell", top_sell.head(3))):
         for _, row in df.iterrows():
@@ -863,6 +853,7 @@ def ticker_detail(
                 "spark": _sparkline_values(activity_df, row["broker_code"], analysis_ts),
             })
 
+    # Price performance
     try:
         perf = analysis.price_performance_table(ticker)
         perf = perf[perf["timeframe"].isin(["1D", "1W", "1M", "3M", "6M", "YTD"])]
@@ -870,11 +861,13 @@ def ticker_detail(
     except Exception:
         perf_rows = []
 
+    # Profile compact
     profile_rows = []
     if not profile_df.empty:
         for _, row in profile_df.sort_values("net", ascending=False).head(6).iterrows():
             profile_rows.append({"label": row["label"], "net": float(row["net"])})
 
+    # Smart daily for chart
     smart_daily_rows = []
     if not daily_smart.empty:
         for _, row in daily_smart.iterrows():
@@ -884,6 +877,7 @@ def ticker_detail(
                 "cumulative_net": float(row["cumulative_net"]),
             })
 
+    # Price context for chart
     price_chart_rows = []
     if not price_window.empty:
         for _, row in price_window.iterrows():
@@ -893,6 +887,7 @@ def ticker_detail(
                 "volume": float(row["volume"]) if "volume" in row and pd.notna(row["volume"]) else None,
             })
 
+    # Signal overlay
     signal_overlay = []
     if not broker_window.empty:
         br_overlay = broker_window[["date", "bandar_signal", "bandar_signal_score"]].copy()
@@ -903,7 +898,7 @@ def ticker_detail(
                 "score": float(row["bandar_signal_score"]) if pd.notna(row["bandar_signal_score"]) else None,
             })
 
-    result = _clean({
+    result = _clean_detail({
         "ticker": ticker,
         "analysis_date": str(analysis_ts.date()),
         "window_start": str(window_start.date()),
@@ -932,9 +927,9 @@ def ticker_detail(
         "activity_date": str(activity_date.date()) if activity_date else None,
     })
 
-    _set_cache("detail", cache_key, result)
+    _DETAIL_CACHE["ts"] = now
+    _DETAIL_CACHE["data"][cache_key] = result
     return result
-
 
 # ============================================================
 # Supporting endpoints for sidebar controls
@@ -966,10 +961,12 @@ def universe_tickers(mode: str):
     except Exception as e:
         return {"mode": mode, "tickers": [], "count": 0, "error": str(e)}
 
-
 # ============================================================
 # Broker Flow Tab Endpoint
 # ============================================================
+
+_BROKERFLOW_CACHE: dict = {"ts": 0.0, "data": {}}
+
 
 def _broker_compare_data(activity, broker_codes, mode):
     if activity.empty or not broker_codes:
@@ -1011,6 +1008,7 @@ def _broker_distribution_data(activity, dist_start, dist_end):
     buyers = dist[dist["net_value"] > 0].copy().sort_values("net_value", ascending=False)
     sellers = dist[dist["net_value"] < 0].copy().sort_values("net_value", ascending=True)
 
+    # Estimated matching (greedy algorithm dari app.py)
     buyer_rows = buyers.head(8).reset_index(drop=True)
     seller_rows = sellers.head(8).reset_index(drop=True)
     buyer_rows["remaining"] = buyer_rows["net_value"].astype(float)
@@ -1108,12 +1106,14 @@ def broker_flow_detail(
     ticker: str,
     analysis_date: str = None,
     window_days: int = 20,
-    broker_codes: str = "",
+    broker_codes: str = "",  # comma-separated
     flow_mode: str = "Cumulative",
 ):
-    cache_key = f"{ticker}|{analysis_date}|{window_days}|{broker_codes}|{flow_mode}"
-    cached = _get_cache("brokerflow", cache_key, 300)
-    if cached:
+    import time as _time
+    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(broker_codes) + "|" + str(flow_mode)
+    now = _time.time()
+    cached = _BROKERFLOW_CACHE["data"].get(cache_key)
+    if cached is not None and (now - _BROKERFLOW_CACHE["ts"]) < 300:
         return cached
 
     ticker = ticker.upper().strip()
@@ -1137,6 +1137,7 @@ def broker_flow_detail(
     if activity_window.empty:
         return {"error": "No activity in window"}
 
+    # Available broker codes
     all_codes = sorted(activity_window["broker_code"].dropna().unique().tolist())
     ranked = (
         activity_window.assign(abs_net=activity_window["net_value"].abs())
@@ -1146,17 +1147,23 @@ def broker_flow_detail(
         .index.tolist()
     )
 
+    # Selected brokers
     selected = [c.strip() for c in broker_codes.split(",") if c.strip()] if broker_codes else ranked[:3]
     if not selected and ranked:
         selected = ranked[:3]
 
+    # Compare chart data
     compare_data = _broker_compare_data(activity_window, selected, flow_mode)
 
+    # Distribution
     dist_start = analysis_ts
     dist_end = analysis_ts
     dist_data = _broker_distribution_data(activity_window, dist_start, dist_end)
+
+    # Summary
     summary = _broker_summary_table(dist_data)
 
+    # Detailed rows
     detail_rows = []
     if not activity_window.empty:
         grouped = (
@@ -1179,7 +1186,6 @@ def broker_flow_detail(
                 "freq": float(row["freq"]),
             })
         detail_rows = sorted(detail_rows, key=lambda x: abs(x["net"]), reverse=True)
-
     profile_df = _profile_flow_from_activity(activity_window)
     profile_rows = []
     if not profile_df.empty:
@@ -1194,7 +1200,7 @@ def broker_flow_detail(
 
     profile_detail_rows = _profile_broker_detail_table(activity_window)
 
-    result = _clean({
+    result = _clean_detail({
         "ticker": ticker,
         "analysis_date": str(analysis_ts.date()),
         "window_start": str(window_start.date()),
@@ -1210,25 +1216,30 @@ def broker_flow_detail(
         "detail_rows": detail_rows,
     })
 
-    _set_cache("brokerflow", cache_key, result)
+    _BROKERFLOW_CACHE["ts"] = now
+    _BROKERFLOW_CACHE["data"][cache_key] = result
     return result
-
 
 @router.get("/causality/{ticker}")
 def causality_insight(ticker: str, analysis_date: str = None, window_days: int = None):
-    ticker = ticker.upper()
+    from idx_bandarmology import analysis
+    import pandas as pd
+
+    # 1. Foreign Granger
     try:
-        foreign_causality = lib_analysis.causality_foreign_vs_price(ticker, max_lags=5)
+        foreign_causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
     except Exception:
         foreign_causality = None
         
+    # 2. Participant Causality
     try:
-        part_causality = lib_analysis.causality_by_participant(ticker, max_lags=5)
+        part_causality = analysis.causality_by_participant(ticker, max_lags=5)
     except Exception:
         part_causality = pd.DataFrame()
         
+    # 3. Broker Causality
     try:
-        broker_causality = lib_analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
+        broker_causality = analysis.causality_by_broker(ticker, top_n=15, max_lags=5)
     except Exception:
         broker_causality = pd.DataFrame()
 
@@ -1268,7 +1279,6 @@ def causality_insight(ticker: str, analysis_date: str = None, window_days: int =
     
     return _clean(raw_response)
 
-
 @router.get("/validation/{ticker}")
 def validation_insight(
     ticker: str,
@@ -1276,9 +1286,13 @@ def validation_insight(
     window_days: int = 60,
     horizon: int = 10,
     min_events: int = 5,
-    min_net_buy: float = 0.0,
-    universe_mode: str = "watchlist"
+    min_net_buy: float = 0.0, universe_mode: str = "watchlist"
 ):
+    from idx_bandarmology import analysis
+    import pandas as pd
+    import numpy as np
+
+    # 1. Broker Alpha Scan
     try:
         scan_df = analysis.broker_alpha_scan(
             [ticker],
@@ -1291,7 +1305,9 @@ def validation_insight(
     except Exception:
         scan_rows = []
 
+    # 2. Accumulation Event Study
     try:
+        ACC_SIGNALS = ["STRONG_ACCUMULATION", "ACCUMULATION", "NET_BUY", "AKUMULASI_KUAT", "AKUMULASI"]
         event_table = analysis.event_study_table(
             tickers=[ticker],
             horizons=(1, 3, 5, 10),
@@ -1358,7 +1374,6 @@ def validation_insight(
     }
     return _clean(raw_response)
 
-
 @router.get("/validation-v2/{ticker}")
 def validation_insight_v2(
     ticker: str,
@@ -1366,13 +1381,18 @@ def validation_insight_v2(
     window_days: int = 60,
     horizon: int = 10,
     min_events: int = 5,
-    min_net_buy: float = 0.0,
-    universe_mode: str = "watchlist"
+    min_net_buy: float = 0.0, universe_mode: str = "watchlist"
 ):
+    from idx_bandarmology import analysis
+    import pandas as pd
+
+    # 1. Broker Alpha Scan (All Watchlist + Ticker)
     try:
         try:
+            from idx_bandarmology.universe import get_universe
             universe_tickers = get_dynamic_universe(universe_mode)
         except Exception:
+            # Fallback jika modul tidak terbaca
             universe_tickers = ["ANTM", "GOTO", "BBCA", "BMRI", "BBRI", "BBNI", "ASII", "TLKM", "BREN", "AMMN"]
         
         if ticker not in universe_tickers:
@@ -1391,7 +1411,9 @@ def validation_insight_v2(
         scan_rows_all = []
         scan_rows_ticker = []
 
+    # 2. Accumulation Event Study (Khusus Ticker yang dibuka)
     try:
+        ACC_SIGNALS = ["STRONG_ACCUMULATION", "ACCUMULATION", "NET_BUY", "AKUMULASI_KUAT", "AKUMULASI"]
         event_table = analysis.event_study_table(
             tickers=[ticker],
             horizons=(1, 3, 5, 10),
@@ -1447,18 +1469,20 @@ def validation_insight_v2(
         "event_study": {"chart": ribbon_chart, "paths": individual_paths, "table": table_data}
     })
 
-
 def get_dynamic_universe(mode: str) -> list[str]:
     """Penerjemah UI ke Daftar Ticker (Bypass BEI Cloudflare via Database Internal)"""
+    from idx_bandarmology.universe import get_universe
     mode = mode.lower().strip()
     
+    # 1. Coba fungsi standar bawaan library (lq45, idx30, idx80)
     standard_modes = ["watchlist", "idx30", "lq45", "idx80", "all", "liquid"]
     if mode in standard_modes:
         try:
-            return universe.get_universe(mode)
+            return get_universe(mode)
         except Exception:
             pass
             
+    # 2. Database Internal Super Cepat (Bypass Blokir BEI Cloudflare)
     _HARDCODED_INDICES = {
         "idx_bumn": ["ADHI", "ANTM", "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "ELSA", "JSMR", "MTEL", "PGAS", "PGEO", "PTBA", "PTPP", "SMGR", "TINS", "TLKM", "WIKA", "WSKT"],
         "idx_high_dividend": ["ADRO", "AMRT", "ANTM", "ASII", "BBNI", "BBRI", "BBCA", "BMRI", "BNGA", "BRPT", "EXCL", "HEXA", "HMSP", "INDF", "ITMG", "KLBF", "PTBA", "TLKM", "UNTR"],
@@ -1481,8 +1505,22 @@ def get_dynamic_universe(mode: str) -> list[str]:
     if mode in _HARDCODED_INDICES:
         return sorted(list(set(_HARDCODED_INDICES[mode])))
         
+    # Fallback terakhir jika indeks benar-benar tidak dikenali
     return ["ANTM", "BBCA", "BBRI", "BMRI", "GOTO", "TLKM"]
 
+
+
+
+
+
+
+
+
+
+
+
+
+_SCREENER_CACHE = {}
 
 @router.get("/screener-v2")
 def smart_screener(
@@ -1490,10 +1528,16 @@ def smart_screener(
     analysis_date: str = None,
     window_days: int = 20
 ):
-    cache_key = f"{universe_mode}|{analysis_date}|{window_days}"
-    cached = _get_cache("screener", cache_key, 1800)
-    if cached:
-        return cached
+    import time as _time
+    import pandas as pd
+    from idx_bandarmology import analysis, storage
+    from .bandarmology import get_dynamic_universe, _conviction_score
+    
+    cache_key = f"screener|{universe_mode}|{analysis_date}|{window_days}"
+    now = _time.time()
+    
+    if cache_key in _SCREENER_CACHE and (now - _SCREENER_CACHE[cache_key]["ts"]) < 1800:
+        return _SCREENER_CACHE[cache_key]["data"]
         
     tickers = get_dynamic_universe(universe_mode)
     if not tickers:
@@ -1511,8 +1555,10 @@ def smart_screener(
         scan_10d = pd.DataFrame()
         
     results = []
+    
     for ticker in tickers[:100]:
         try:
+            # Tarik data dari storage agar persis sama dengan app.py
             try:
                 df_flow_full = storage.read_broker_flow([ticker])
             except Exception:
@@ -1528,14 +1574,16 @@ def smart_screener(
             latest_flow = df_flow_full.iloc[-1]
             raw_signal = latest_flow.get("bandar_signal", "NEUTRAL")
             signal = str(raw_signal).replace("_", " ").title() if pd.notna(raw_signal) else "Neutral"
-            if signal.upper() == "NET BUY": signal = "Net Buy"
-            elif signal.upper() == "NET SELL": signal = "Net Sell"
+            if signal.upper() == "NET_BUY": signal = "Net Buy"
+            elif signal.upper() == "NET_SELL": signal = "Net Sell"
             
+            # Hitung Foreign 5D Sum
             foreign_5d = float(df_flow_full.tail(5)["foreign_net_broker"].fillna(0).sum())
             
             raw_date = latest_flow.get("date")
             data_date_str = str(pd.Timestamp(raw_date).date()) if pd.notna(raw_date) else str(analysis_ts.date())
             
+            # Hitung Conviction menggunakan foreign_5d
             try:
                 conv_data = _conviction_score(raw_signal, foreign_5d, scan_10d, ticker)
                 final_score = float(conv_data.get("score", 0.0))
@@ -1581,7 +1629,9 @@ def smart_screener(
         except Exception:
             continue
             
+    # Sortir berdasarkan Conviction Score seperti di app.py
     results = sorted(results, key=lambda x: x["conviction_score"], reverse=True)
+    
     output = {
         "data": results,
         "meta": {
@@ -1589,12 +1639,16 @@ def smart_screener(
             "analysis_date": str(analysis_ts.date())
         }
     }
-    _set_cache("screener", cache_key, output)
+    _SCREENER_CACHE[cache_key] = {"ts": now, "data": output}
+    
     return output
 
 
 @router.get("/stocks/{ticker}/raw-tables")
 def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20):
+    import pandas as pd
+    from idx_bandarmology import storage
+    
     ticker = ticker.upper()
     analysis_ts = pd.Timestamp(analysis_date) if analysis_date else pd.Timestamp.today()
     window_start = analysis_ts - pd.Timedelta(days=window_days)
@@ -1602,6 +1656,7 @@ def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20
     def _clean_date(d):
         return str(pd.Timestamp(d).date()) if pd.notna(d) else "-"
 
+    # 1. BROKER FLOW ROWS
     flow_list = []
     try:
         flow_df = storage.read_broker_flow([ticker])
@@ -1622,11 +1677,14 @@ def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20
     except Exception:
         pass
         
+    # 2. BROKER ACTIVITY ROWS
     act_list = []
     try:
         act_df = storage.read_broker_activity([ticker])
         act_df = act_df[(act_df["date"] >= window_start) & (act_df["date"] <= analysis_ts)].copy()
         
+        # FIX: Urutkan berdasarkan "Gross Value" (Total Transaksi Beli + Jual)
+        # Ini akan mematahkan pola deretan semu dan menampilkan broker teraktif di posisi atas
         act_df["_gross"] = act_df["buy_value"].fillna(0) + act_df["sell_value"].fillna(0)
         act_df = act_df.sort_values(["date", "_gross"], ascending=[False, False])
         
@@ -1646,5 +1704,4 @@ def get_raw_tables(ticker: str, analysis_date: str = None, window_days: int = 20
     except Exception:
         pass
         
-    return _clean({"flow": flow_list, "activity": act_list})
-    
+    return {"flow": flow_list, "activity": act_list}
