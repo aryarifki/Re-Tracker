@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
+import Link from "next/link";
+import { Icon } from "@iconify/react";
 import TickerCard from "@/components/home/TickerCard";
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 const LS_KEY = "tradepulse_watchlist";
 
 export default function HomeMobile() {
-  const { data, error } = useSWR(
+  const { data, error, isLoading, isValidating, mutate } = useSWR(
     "/api/bandar/daily-summary?universe_mode=all",
     fetcher,
-    { refreshInterval: 60000 }
+    { refreshInterval: 60000, revalidateOnFocus: false }
   );
 
   const counts = data?.signal_counts ?? {};
@@ -26,7 +28,7 @@ export default function HomeMobile() {
 
   const items = data?.items ?? [];
 
-  // ── Kustomisasi watchlist (localStorage) ──
+  // Watchlist (localStorage)
   const [myList, setMyList] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -52,134 +54,188 @@ export default function HomeMobile() {
   }
 
   function removeTicker(ticker: string) {
-    saveList(myList.filter(function (t) { return t !== ticker; }));
+    saveList(myList.filter((t) => t !== ticker));
   }
 
-  const byTicker = useMemo(function () {
+  const byTicker = useMemo(() => {
     const m: Record<string, any> = {};
-    items.forEach(function (i: any) { m[i.ticker] = i; });
+    items.forEach((i: any) => { m[i.ticker] = i; });
     return m;
   }, [items]);
 
-  const searchResults = useMemo(function () {
+  const searchResults = useMemo(() => {
     if (!query) return [];
     const q = query.toUpperCase();
-    return items
-      .filter(function (i: any) { return i.ticker.indexOf(q) !== -1; })
-      .slice(0, 8);
+    return items.filter((i: any) => i.ticker.includes(q)).slice(0, 8);
   }, [query, items]);
 
-  const shown = useMemo(function () {
+  const shown = useMemo(() => {
     if (!loaded) return items.slice(0, 10);
     if (myList.length === 0) return items.slice(0, 10);
-    return myList
-      .filter(function (t) { return byTicker[t]; })
-      .map(function (t) { return byTicker[t]; });
+    return myList.filter((t) => byTicker[t]).map((t) => byTicker[t]);
   }, [loaded, myList, byTicker, items]);
 
   return (
-    <main className="max-w-md mx-auto p-3 space-y-4">
-      {/* Hero: Dashboard */}
-      <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4">
-        <h2 className="text-lg font-bold">Dashboard</h2>
-        <p className="text-xs text-neutral-500">
-          Ringkasan bandarmologi{" "}
-          {data?.as_of ? "· data s/d " + String(data.as_of).slice(0, 10) : "memuat..."}
-        </p>
+    <main className="max-w-xl mx-auto p-4 md:p-6 space-y-8 min-h-[100dvh] bg-[#0a0a0a] text-neutral-200 selection:bg-blue-500/30">
+      
+      {/* HEADER SECTION */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pb-4 border-b border-neutral-800/80">
+        <div>
+            <div className="flex items-center gap-2 mb-1">
+                <Icon icon="ph:trend-up-duotone" className="text-emerald-400" width="20" />
+                <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-400/80">SM Tracker</span>
+            </div>
+            <h1 className="text-2xl font-semibold text-white tracking-tight leading-none">Market Overview</h1>
+            <p className="text-sm text-neutral-500 mt-2 flex items-center gap-1.5">
+                Macro sentiment index 
+                <span className="w-1 h-1 rounded-full bg-neutral-600"></span> 
+                {data?.as_of ? String(data.as_of).slice(0, 10) : "Loading data..."}
+            </p>
+        </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2">
-            <div className="text-emerald-400 font-bold text-lg">{accum}</div>
-            <div className="text-[10px] text-neutral-400">AKUMULASI</div>
-          </div>
-          <div className="bg-neutral-500/10 border border-neutral-500/20 rounded-xl py-2">
-            <div className="text-neutral-300 font-bold text-lg">{(counts["NETRAL"] ?? 0) + (counts["NEUTRAL"] ?? 0)}</div>
-            <div className="text-[10px] text-neutral-400">NETRAL</div>
-          </div>
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-2">
-            <div className="text-red-400 font-bold text-lg">{distrib}</div>
-            <div className="text-[10px] text-neutral-400">DISTRIBUSI</div>
-          </div>
+        <button 
+            onClick={() => mutate()}
+            disabled={isValidating}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#141417] hover:bg-neutral-800 active:scale-[0.98] border border-neutral-800 hover:border-neutral-700 rounded-lg text-xs font-medium text-neutral-300 transition-all disabled:opacity-50"
+        >
+            <Icon icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-duotone"} className={isValidating ? "animate-spin text-neutral-400" : "text-neutral-400"} />
+            {isValidating ? "Syncing" : "Refresh"}
+        </button>
+      </header>
+
+      {/* DASHBOARD WIDGETS */}
+      <section className="grid grid-cols-3 gap-3">
+        <div className="bg-[#141417] border border-emerald-500/20 rounded-xl p-4 flex flex-col shadow-sm">
+            <div className="flex items-center gap-1.5 mb-2 text-emerald-400">
+                <Icon icon="ph:trend-up-bold" width="16" />
+                <span className="text-[10px] font-bold tracking-wider uppercase">Accumulation</span>
+            </div>
+            <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">
+                {isLoading && !data ? "--" : accum}
+            </div>
+        </div>
+
+        <div className="bg-[#141417] border border-neutral-700/50 rounded-xl p-4 flex flex-col shadow-sm">
+            <div className="flex items-center gap-1.5 mb-2 text-neutral-400">
+                <Icon icon="ph:minus-circle-bold" width="16" />
+                <span className="text-[10px] font-bold tracking-wider uppercase">Neutral</span>
+            </div>
+            <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">
+                {isLoading && !data ? "--" : ((counts["NETRAL"] ?? 0) + (counts["NEUTRAL"] ?? 0))}
+            </div>
+        </div>
+
+        <div className="bg-[#141417] border border-rose-500/20 rounded-xl p-4 flex flex-col shadow-sm">
+            <div className="flex items-center gap-1.5 mb-2 text-rose-400">
+                <Icon icon="ph:trend-down-bold" width="16" />
+                <span className="text-[10px] font-bold tracking-wider uppercase">Distribution</span>
+            </div>
+            <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">
+                {isLoading && !data ? "--" : distrib}
+            </div>
         </div>
       </section>
 
-      {/* Navigasi View */}
-      <section className="grid grid-cols-2 gap-2 text-center text-sm">
-        <a href="/dashboard" className="bg-neutral-900 border border-neutral-800 rounded-xl py-3 text-neutral-200 active:border-emerald-500/50">
-          📈 View Dashboard
-        </a>
-        <a href="/broker/BBCA" className="bg-neutral-900 border border-neutral-800 rounded-xl py-3 text-neutral-200 active:border-emerald-500/50">
-          🔍 View Analisis
-        </a>
+      {/* QUICK ACTIONS */}
+      <section className="grid grid-cols-2 gap-3">
+        <Link href="/dashboard" className="group flex items-center justify-center gap-2 bg-[#141417] border border-neutral-800 hover:border-blue-500/40 rounded-xl py-3.5 text-sm font-medium text-neutral-300 transition-all active:scale-[0.98] shadow-sm">
+          <Icon icon="ph:chart-polar-duotone" className="text-blue-400 group-hover:scale-110 transition-transform" width="18" />
+          Pro Dashboard
+        </Link>
+        <Link href="/BBCA" className="group flex items-center justify-center gap-2 bg-[#141417] border border-neutral-800 hover:border-indigo-500/40 rounded-xl py-3.5 text-sm font-medium text-neutral-300 transition-all active:scale-[0.98] shadow-sm">
+          <Icon icon="ph:magnifying-glass-duotone" className="text-indigo-400 group-hover:scale-110 transition-transform" width="18" />
+          Ticker Analysis
+        </Link>
       </section>
 
-      {/* Watchlist kustom */}
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-neutral-300">
-            📊 Watchlist ({shown.length}{loaded && myList.length > 0 ? "" : " / " + items.length})
+      {/* WATCHLIST SECTION */}
+      <section className="space-y-4 pt-2">
+        <div className="flex items-center justify-between border-b border-neutral-800/80 pb-3">
+          <h3 className="text-base font-semibold text-neutral-100 flex items-center gap-2">
+             <Icon icon="ph:binoculars-duotone" className="text-neutral-400" width="20" />
+             Watchlist
+             <span className="text-xs font-normal text-neutral-500 ml-1">
+               {shown.length} {loaded && myList.length > 0 ? "" : `of ${items.length}`}
+             </span>
           </h3>
           <button
-            onClick={function () { setEditing(!editing); }}
-            className={"text-xs px-3 py-1 rounded-lg border " +
-              (editing
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                : "bg-neutral-900 text-neutral-400 border-neutral-800")}
+            onClick={() => setEditing(!editing)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors active:scale-[0.98] ${
+              editing
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                : "bg-[#141417] text-neutral-400 border-neutral-800 hover:border-neutral-700 hover:text-neutral-200"
+            }`}
           >
-            {editing ? "Selesai" : "✏️ Kustom"}
+            <Icon icon={editing ? "ph:check-bold" : "ph:pencil-simple-duotone"} />
+            {editing ? "Done" : "Edit List"}
           </button>
         </div>
 
         {editing && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 space-y-2">
+          <div className="bg-[#141417] border border-neutral-800/80 rounded-xl p-5 space-y-4 shadow-md">
             <p className="text-xs text-neutral-400">
-              Cari & ketuk untuk menambah ke watchlist Anda (tersimpan di perangkat ini):
+              Search and select tickers to build your personal watchlist.
             </p>
-            <input
-              value={query}
-              onChange={function (e) { setQuery(e.target.value); }}
-              placeholder="Ketik kode ticker, mis. BBCA..."
-              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 outline-none focus:border-emerald-500/50"
-            />
-            <div className="flex flex-wrap gap-2">
-              {searchResults.map(function (i: any) {
-                const added = myList.indexOf(i.ticker) !== -1;
-                return (
-                  <button
-                    key={i.ticker}
-                    onClick={function () { addTicker(i.ticker); }}
-                    className={"text-xs px-2 py-1 rounded-lg border " +
-                      (added
-                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                        : "bg-neutral-800 text-neutral-300 border-neutral-700")}
-                  >
-                    {added ? "✓ " : "+ "}{i.ticker}
-                  </button>
-                );
-              })}
+            <div className="relative">
+                <Icon icon="ph:magnifying-glass" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" width="16" />
+                <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search ticker (e.g. BBCA)..."
+                    className="w-full bg-[#0a0a0a] border border-neutral-700 rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all uppercase"
+                />
             </div>
+            
+            {query && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                {searchResults.map((i: any) => {
+                    const added = myList.includes(i.ticker);
+                    return (
+                    <button
+                        key={i.ticker}
+                        onClick={() => addTicker(i.ticker)}
+                        className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border font-medium transition-all active:scale-[0.98] ${
+                        added
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 opacity-60 cursor-default"
+                            : "bg-[#0a0a0a] text-neutral-300 border-neutral-700 hover:border-blue-500/50 hover:bg-blue-500/10"
+                        }`}
+                    >
+                        <Icon icon={added ? "ph:check-bold" : "ph:plus-bold"} width="12" />
+                        {i.ticker}
+                    </button>
+                    );
+                })}
+                {searchResults.length === 0 && <span className="text-xs text-neutral-500">No tickers found.</span>}
+                </div>
+            )}
+            
             {myList.length > 0 && (
-              <p className="text-[10px] text-neutral-500">
-                Watchlist Anda: {myList.join(", ")} — ketuk ✏️ lalu × pada kartu untuk menghapus.
-              </p>
+              <div className="pt-3 mt-3 border-t border-neutral-800">
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Your tracking list: <span className="text-neutral-300 font-medium">{myList.join(", ")}</span>
+                </p>
+              </div>
             )}
           </div>
         )}
 
-        {error && <p className="text-xs text-red-400">Gagal memuat data — cek server API.</p>}
+        {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl flex items-center gap-2"><Icon icon="ph:warning-circle-duotone" width="18"/> Connection error.</div>}
 
-        {shown.map(function (item: any) {
-          return (
+        <div className="grid gap-3">
+            {shown.map((item: any) => (
             <TickerCard
-              key={item.ticker}
-              item={item}
-              onRemove={editing && myList.length > 0 ? removeTicker : undefined}
+                key={item.ticker}
+                item={item}
+                onRemove={editing && myList.length > 0 ? removeTicker : undefined}
             />
-          );
-        })}
+            ))}
+        </div>
 
         {data && items.length === 0 && !error && (
-          <p className="text-xs text-neutral-500">Belum ada data broker.</p>
+          <div className="py-12 flex flex-col items-center justify-center text-neutral-500">
+             <Icon icon="ph:ghost-duotone" width="32" className="mb-3 opacity-50" />
+             <p className="text-sm">No market data available.</p>
+          </div>
         )}
       </section>
     </main>
