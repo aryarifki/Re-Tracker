@@ -3,6 +3,7 @@ uvicorn[standard]
 pandas
 numpy
 scipy
+seaborn
 statsmodels
 matplotlib
 plotly
