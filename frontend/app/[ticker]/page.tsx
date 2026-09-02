@@ -1,257 +1,657 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
-import Image from "next/image";
-import { Icon } from "@iconify/react";
-import TickerCard from "@/components/home/TickerCard";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  ComposedChart,
+  ReferenceLine,
+} from "recharts";
 
-const fetcher = (u: string) => fetch(u).then((r) => r.json());
-const LS_KEY = "tradepulse_watchlist";
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-/* =========================================================
-   WATCHLIST FETCHER (LAZY LOAD PER TICKER)
-========================================================= */
-function WatchlistFetcher({ ticker, onRemove }: { ticker: string; onRemove?: (t: string) => void }) {
-  const { data, isLoading, error } = useSWR(`/api/bandar/detail/${ticker}?window_days=20`, fetcher, { revalidateOnFocus: false });
-
-  if (isLoading) return (
-     <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 h-[84px] flex flex-col justify-between animate-pulse shadow-sm">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="w-12 h-5 bg-[#1A1D24] rounded-md"></div>
-                <div className="w-20 h-4 bg-[#1A1D24] rounded-md"></div>
-            </div>
-            <div className="w-16 h-6 bg-[#1A1D24] rounded-md"></div>
-        </div>
-        <div className="flex items-center justify-between border-t border-white/[0.02] pt-2">
-            <div className="w-10 h-3 bg-[#1A1D24] rounded-sm"></div>
-            <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
-            <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
-        </div>
-     </div>
-  );
-  
-  if (error || data?.error) return null;
-
-  const item = {
-    ticker: data.ticker,
-    signal: data.signal_raw || data.signal,
-    close: data.close,
-    ret_5d: data.ret_5d,
-    foreign_net_5d: data.foreign_5d,
-    spark: data.price_chart?.slice(-20).map((d: any) => d.close) || []
-  };
-
-  return <TickerCard item={item} onRemove={onRemove} />;
+/* ==================== Formatters ==================== */
+function fmtRp(n: number | null): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "-";
+  const sign = n < 0 ? "-" : "";
+  const v = Math.abs(n);
+  if (v >= 1e12) return sign + "Rp " + (v / 1e12).toFixed(2) + " T";
+  if (v >= 1e9) return sign + "Rp " + (v / 1e9).toFixed(2) + " B";
+  if (v >= 1e6) return sign + "Rp " + (v / 1e6).toFixed(2) + " M";
+  return sign + "Rp " + v.toLocaleString("id-ID");
 }
 
-/* =========================================================
-   MAIN HOME PAGE
-========================================================= */
-export default function HomeMobile() {
-  const [booted, setBooted] = useState(false);
-  const [myList, setMyList] = useState<string[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [query, setQuery] = useState("");
+function fmtPct(n: number | null): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "-";
+  return (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
+}
 
+function signedColor(n: number): string {
+  return n >= 0 ? "#10b981" : "#f43f5e";
+}
+
+function signalColor(score: number | null): string {
+  if (score === null || score === undefined) return "#94a3b8";
+  if (score >= 2) return "#10b981";
+  if (score === 1) return "#65a30d";
+  if (score === 0) return "#94a3b8";
+  if (score === -1) return "#ea580c";
+  return "#f43f5e";
+}
+
+import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
+import CausalityTab from "@/components/analysis/CausalityTab";
+import ValidationTab from "@/components/analysis/ValidationTab";
+import ScreenerTab from "@/components/analysis/ScreenerTab";
+import RawTablesTab from "@/components/analysis/RawTablesTab";
+
+const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
+const UNIVERSES = [
+  "watchlist", 
+  "idx80", 
+  "lq45", 
+  "idx_high_dividend", 
+  "idx_bumn", 
+  "idx_smc", 
+  "esg_kehati", 
+  "idxenergy", 
+  "idxtrans", 
+  "idxinfra", 
+  "idxtechno", 
+  "idxpropert", 
+  "idxfinance", 
+  "idxhealth", 
+  "idxcyclic", 
+  "idxnoncyc", 
+  "idxindust", 
+  "idxbasic", 
+  "bisnis-27"
+];
+const WINDOWS = [20, 30, 60, 90, 180];
+const HORIZONS = [1, 3, 5, 10];
+
+/* ==================== Page ==================== */
+export default function TickerPage() {
+  const params = useParams();
+  const router = useRouter();
+  const ticker = String(params.ticker || "").toUpperCase();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("Overview");
+
+  /* Sidebar controls state */
+  const [universe, setUniverse] = useState("watchlist");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [analysisDate, setAnalysisDate] = useState("");
+  const [windowDays, setWindowDays] = useState(20);
+  const [horizon, setHorizon] = useState(10);
+  const [minEvents, setMinEvents] = useState(5);
+  const [minNetBuy, setMinNetBuy] = useState(0);
+
+  /* Fetch universe tickers */
+  const { data: universeData } = useSWR("/api/bandar/universe/" + universe, fetcher);
+  const { data: allUniverseData } = useSWR("/api/bandar/universe/all", fetcher);
+  
+  const tickers = universeData?.tickers || [];
+  const allTickers = allUniverseData?.tickers || [];
+
+  const filteredTickers = useMemo(() => {
+    const term = searchTerm.toUpperCase();
+    // JALUR VIP: Jika ada ketikan, cari di allTickers (seluruh bursa). Jika kosong, pakai tickers dari dropdown.
+    return term ? allTickers.filter((t: string) => t.includes(term)).slice(0, 10) : tickers.slice(0, 10);
+  }, [tickers, allTickers, searchTerm]);
+
+  /* Fetch dates for selected ticker */
+  const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
+  const availableDates = datesData?.dates || [];
+
+  /* Fetch detail */
+  const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "");
+  const { data, error, isLoading } = useSWR(
+    ticker ? "/api/bandar/detail/" + ticker + qs : null,
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+
+  /* Auto-select latest date when dates load */
   useEffect(() => {
-    const timer = setTimeout(() => setBooted(true), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    if (availableDates.length > 0 && !analysisDate) {
+      setAnalysisDate(availableDates[availableDates.length - 1]);
+    }
+  }, [availableDates, analysisDate]);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(LS_KEY);
-      if (saved) {
-         const parsed = JSON.parse(saved);
-         setMyList(parsed.length > 0 ? parsed : ["BBCA", "ASII"]);
-      } else {
-         setMyList(["BBCA", "BMRI", "GOTO"]);
-      }
-    } catch (e) {}
-    setLoaded(true);
-  }, []);
+  /* Navigate to different ticker */
+  const goToTicker = (t: string) => {
+    if (t && t !== ticker) {
+      router.push("/" + t);
+      setSidebarOpen(false);
+    }
+  };
 
-  const { data: dateData } = useSWR("/api/bandar/dates/BBCA", fetcher, { revalidateOnFocus: false });
-  const latestDate = dateData?.dates?.[dateData.dates.length - 1] || "SYNCING...";
-
-  const { data: universeData } = useSWR("/api/bandar/universe/all", fetcher, { revalidateOnFocus: false });
-  const allTickers = universeData?.tickers || [];
-
-  function saveList(list: string[]) {
-    setMyList(list);
-    localStorage.setItem(LS_KEY, JSON.stringify(list));
-  }
-
-  function addTicker(ticker: string) {
-    const t = ticker.trim().toUpperCase();
-    if (t && !myList.includes(t)) saveList([...myList, t]);
-    setQuery("");
-  }
-
-  function removeTicker(ticker: string) {
-    saveList(myList.filter((t) => t !== ticker));
-  }
-
-  const searchResults = useMemo(() => {
-    if (!query) return [];
-    const q = query.toUpperCase();
-    return allTickers.filter((t: string) => t.includes(q)).slice(0, 8);
-  }, [query, allTickers]);
-
-  if (!booted) {
-    return (
-      <div className="min-h-[100dvh] bg-[#08090C] flex flex-col items-center justify-center text-orange-400 font-mono selection:bg-transparent">
-        <div className="relative w-28 h-28 mb-5 animate-pulse drop-shadow-[0_0_20px_rgba(251,146,60,0.3)]">
-          <Image src="/logo.png" alt="InvestOwl Logo" fill className="object-contain" priority />
-        </div>
-        <div className="text-xs font-bold tracking-[0.3em] uppercase animate-pulse">Initializing System</div>
-        <div className="text-[10px] text-orange-400/50 mt-2 tracking-widest">Loading InvestOwl Engine...</div>
-      </div>
-    );
+  if (!ticker) {
+    return <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">No ticker</div>;
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#08090C] text-neutral-200 selection:bg-blue-500/30">
-      <main className="max-w-xl mx-auto p-4 md:p-6 space-y-6 pb-6">
-        
-        <header className="flex items-center justify-between border-b border-white/[0.07] pb-3">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <aside className={
+        "fixed lg:sticky top-0 z-50 h-screen w-72 bg-neutral-900 border-r border-neutral-800 overflow-y-auto " +
+        "transition-transform duration-300 ease-in-out " +
+        (sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0")
+      }>
+        <div className="p-4 space-y-5">
+          {/* Header */}
           <div>
-              <h1 className="text-xl font-semibold text-white tracking-tight leading-none">IDX Terminal</h1>
-              <div className="text-[10px] font-mono text-neutral-500 mt-1.5 uppercase tracking-wider">System Dashboard</div>
+            <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">IDX Broker Flow</div>
+            <h2 className="text-sm font-bold text-white">Controls</h2>
           </div>
-          <div className="text-right flex flex-col items-end">
-              <div className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Status</div>
-              <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                  ONLINE <span className="text-neutral-500 mx-0.5">•</span> {latestDate}
-              </div>
-          </div>
-        </header>
 
-        <section className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-4 relative overflow-hidden shadow-sm">
-           <div className="absolute top-0 left-0 w-full h-[2px] bg-blue-500 opacity-80"></div>
-           <div className="flex items-center gap-2 mb-3">
-               <Icon icon="ph:info-duotone" className="text-blue-400" width="18" />
-               <h2 className="text-sm font-semibold text-neutral-100">Quant Flow Architecture</h2>
-           </div>
-           <p className="text-[11px] text-neutral-400 leading-relaxed mb-4 text-justify">
-             Platform analisis kuantitatif kelas institusional untuk Bursa Efek Indonesia. Dirancang untuk melacak jejak <i>Smart Money</i>, kausalitas broker, dan memvalidasi rekam jejak akumulasi secara historis guna mengidentifikasi fase awal sebelum <i>price breakout</i>.
-           </p>
-           
-           <div className="flex items-center justify-between border-t border-white/[0.05] pt-3 mt-1">
-             <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500">
-               <Icon icon="ph:terminal-duotone" width="14" /> Author: <span className="text-neutral-300 font-semibold">arya rifky</span>
-             </div>
-             <a 
-               href="https://www.instagram.com/rifqiaarya?igsi=bzJzbzZhZW1qanFr" 
-               target="_blank" 
-               rel="noopener noreferrer" 
-               className="flex items-center gap-1.5 text-[10px] font-mono text-rose-400 hover:text-rose-300 transition-colors bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-md"
-             >
-               <Icon icon="ph:instagram-logo-duotone" width="14" /> @rifqiaarya
-             </a>
-           </div>
-        </section>
-
-        <section className="space-y-4 pt-1">
-          <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
-            <h3 className="text-sm font-semibold text-neutral-100 flex items-center gap-2">
-               <Icon icon="ph:binoculars-duotone" className="text-neutral-400" width="18" />
-               Active Watchlist
-               <span className="text-[10px] font-mono text-neutral-500 ml-1 bg-[#0F1117] border border-white/[0.05] px-1.5 py-0.5 rounded">
-                 {myList.length} ASSETS
-               </span>
-            </h3>
-            <button
-              onClick={() => setEditing(!editing)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors active:scale-[0.98] ${
-                editing
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : "bg-[#0F1117] text-neutral-400 border-white/[0.07] hover:border-white/[0.15] hover:text-neutral-200"
-              }`}
+          {/* Universe */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Universe</label>
+            <select
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              value={universe}
+              onChange={(e) => setUniverse(e.target.value)}
             >
-              <Icon icon={editing ? "ph:check-bold" : "ph:pencil-simple-duotone"} />
-              {editing ? "Done" : "Edit List"}
+              {UNIVERSES.map((u) => (
+                <option key={u} value={u}>{u.toUpperCase()}</option>
+              ))}
+            </select>
+            <div className="text-[10px] text-neutral-500 mt-1">
+              {universeData?.count || 0} tickers
+            </div>
+          </div>
+
+          {/* Search */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Search Ticker</label>
+            <input
+              type="text"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              placeholder="Type ticker..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <div className="mt-1 bg-neutral-800 border border-neutral-700 rounded-lg overflow-hidden">
+                {filteredTickers.map((t: string) => (
+                  <button
+                    key={t}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                    onClick={() => { goToTicker(t); setSearchTerm(""); }}
+                  >
+                    {t}
+                  </button>
+                ))}
+                {filteredTickers.length === 0 && (
+                  <div className="px-3 py-1.5 text-sm text-neutral-500">No match</div>
+                )}
+              </div>
+            )}
+            {!searchTerm && tickers.length > 0 && (
+              <div className="mt-1 max-h-32 overflow-y-auto bg-neutral-800 border border-neutral-700 rounded-lg">
+                {tickers.slice(0, 20).map((t: string) => (
+                  <button
+                    key={t}
+                    className={
+                      "w-full text-left px-3 py-1 text-xs " +
+                      (t === ticker ? "bg-blue-900/40 text-blue-300 font-bold" : "text-neutral-400 hover:bg-neutral-700 hover:text-white")
+                    }
+                    onClick={() => goToTicker(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Analysis Date */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Analysis Date</label>
+            <select
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              value={analysisDate}
+              onChange={(e) => setAnalysisDate(e.target.value)}
+            >
+              {availableDates.map((d: string) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            {availableDates.length === 0 && (
+              <div className="text-[10px] text-neutral-500 mt-1">Loading dates...</div>
+            )}
+          </div>
+
+          {/* Broker Window */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Broker Window</label>
+            <select
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              value={windowDays}
+              onChange={(e) => setWindowDays(Number(e.target.value))}
+            >
+              {WINDOWS.map((w) => (
+                <option key={w} value={w}>{w} calendar days</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Validation Horizon */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Validation Horizon</label>
+            <select
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              value={horizon}
+              onChange={(e) => setHorizon(Number(e.target.value))}
+            >
+              {HORIZONS.map((h) => (
+                <option key={h} value={h}>{h} trading days</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Min Events */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Min Broker Events</label>
+            <input
+              type="number"
+              min={3}
+              max={30}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              value={minEvents}
+              onChange={(e) => setMinEvents(Number(e.target.value))}
+            />
+          </div>
+
+          {/* Min Net Buy */}
+          <div>
+            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Min Net Buy, Rp B</label>
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              value={minNetBuy}
+              onChange={(e) => setMinNetBuy(Number(e.target.value))}
+            />
+          </div>
+
+          <hr className="border-neutral-800" />
+
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors">
+              Run latest pipeline to today
+            </button>
+            <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors">
+              Fetch missing broker dates
+            </button>
+            <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors">
+              Backfill broker history
             </button>
           </div>
 
-          {editing && (
-            <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-4 space-y-3 shadow-md">
-              <div className="relative">
-                  <Icon icon="ph:magnifying-glass" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" width="16" />
-                  <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search ticker (e.g. BBCA)..."
-                      className="w-full bg-[#08090C] border border-white/[0.07] rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-100 outline-none focus:border-orange-400/50 uppercase font-mono placeholder:normal-case placeholder:font-sans"
-                  />
-              </div>
-              
-              {query && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                  {searchResults.map((t: string) => {
-                      const added = myList.includes(t);
-                      return (
-                      <button
-                          key={t}
-                          onClick={() => addTicker(t)}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border font-bold font-mono transition-all active:scale-[0.98] ${
-                          added
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 opacity-60 cursor-default"
-                              : "bg-[#08090C] text-neutral-300 border-white/[0.07] hover:border-orange-400/50 hover:text-orange-400"
-                          }`}
-                      >
-                          <Icon icon={added ? "ph:check-bold" : "ph:plus-bold"} width="12" />
-                          {t}
-                      </button>
-                      );
-                  })}
-                  {searchResults.length === 0 && <span className="text-xs text-neutral-500 italic">No tickers found.</span>}
-                  </div>
-              )}
-            </div>
-          )}
+          {/* Footer */}
+          <div className="text-[10px] text-neutral-600 pt-2">
+            Data: localhost/bandarmology<br/>
+            Created by: Cugarete
+          </div>
+        </div>
+      </aside>
 
-          <div className="grid gap-3">
-              {!loaded ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 h-[84px] flex flex-col justify-between animate-pulse shadow-sm">
-                      <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                              <div className="w-12 h-5 bg-[#1A1D24] rounded-md"></div>
-                              <div className="w-20 h-4 bg-[#1A1D24] rounded-md"></div>
-                          </div>
-                          <div className="w-16 h-6 bg-[#1A1D24] rounded-md"></div>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-white/[0.02] pt-2">
-                          <div className="w-10 h-3 bg-[#1A1D24] rounded-sm"></div>
-                          <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
-                          <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
-                      </div>
-                  </div>
-                ))
-              ) : (
-                myList.map((ticker) => (
-                   <WatchlistFetcher 
-                      key={ticker} 
-                      ticker={ticker} 
-                      onRemove={editing ? removeTicker : undefined} 
-                   />
-                ))
-              )}
+      {/* Main Content */}
+      <main className="flex-1 min-w-0">
+        {/* Mobile header with hamburger */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-neutral-900 border-b border-neutral-800">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg bg-neutral-800 text-neutral-300"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <span className="font-bold text-white">{ticker}</span>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          {/* Desktop Header */}
+          <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+            <div>
+              <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">IDX Broker Flow Research</div>
+              <h1 className="text-xl font-bold text-white">Smart Money Dashboard</h1>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs font-semibold bg-neutral-800 border border-neutral-700 rounded-full px-3 py-1">{ticker}</span>
+              <span className="text-xs font-semibold bg-neutral-800 border border-neutral-700 rounded-full px-3 py-1">
+                Analysis {data?.analysis_date || "..."}
+              </span>
+              <span className="text-xs font-semibold bg-neutral-800 border border-neutral-700 rounded-full px-3 py-1">
+                Window {data?.window_start || "..."} to {data?.analysis_date || "..."}
+              </span>
+            </div>
           </div>
 
-          {loaded && myList.length === 0 && (
-            <div className="py-10 flex flex-col items-center justify-center text-neutral-500 bg-[#0F1117] border border-white/[0.07] rounded-xl">
-               <Icon icon="ph:ghost-duotone" width="32" className="mb-2 opacity-50" />
-               <p className="text-xs">Your watchlist is empty.</p>
+          {/* Mobile Title */}
+          <div className="lg:hidden mb-4">
+            <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">IDX Broker Flow Research</div>
+            <h1 className="text-lg font-bold text-white">Smart Money Dashboard</h1>
+          </div>
+
+          {/* Loading / Error */}
+          {isLoading && <div className="text-neutral-400 text-sm mb-4">Loading data...</div>}
+          {error && <div className="text-red-400 text-sm mb-4">Error loading data</div>}
+
+          {/* Metric Cards */}
+          {data && !data.error && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+              <MetricCard label="Conviction Score" value={data.conviction_score?.toFixed(1) + "/100"} note="weighted model" tone={data.conviction_score} />
+              <MetricCard label="Signal" value={data.signal} note="selected date" tone={null} accent={signalColor(data.signal_score)} />
+              <MetricCard label="5D Return" value={fmtPct(data.ret_5d)} note="price context" tone={data.ret_5d} />
+              <MetricCard label="Foreign Net 5D" value={fmtRp(data.foreign_5d)} note="broker summary" tone={data.foreign_5d} />
+              <MetricCard label="Top Buyer" value={data.top_buyer?.broker || "-"} note={fmtRp(data.top_buyer?.net)} tone={1} />
+              <MetricCard label="Smart Cumulative" value={fmtRp(data.smart_cumulative)} note={(data.smart_daily?.length || 0) + " broker days"} tone={data.smart_cumulative} />
             </div>
           )}
-        </section>
+
+          {/* Alerts */}
+          {data?.alerts?.length > 0 && (
+            <div className="mb-4 bg-amber-950/40 border border-amber-800/50 rounded-xl px-4 py-3">
+              {data.alerts.map((a: string, i: number) => (
+                <div key={i} className="text-sm text-amber-300">{a}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Verdict */}
+          {data?.verdict && (
+            <div className="mb-4 bg-blue-950/30 border-l-4 border-blue-500 rounded-r-xl px-4 py-3">
+              <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Current read</div>
+              <div className="text-sm text-neutral-200 leading-relaxed">{data.verdict}</div>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="border-b border-neutral-800 mb-4">
+            <div className="flex gap-1 overflow-x-auto">
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={
+                    "px-4 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg transition-colors " +
+                    (activeTab === tab
+                      ? "text-white bg-neutral-800 border-b-2 border-blue-500"
+                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900")
+                  }
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="pb-8">
+            {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
+            {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
+            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
+            {activeTab === "Validation" && (
+              <ValidationTab
+                ticker={ticker}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+                universeMode={universe}
+                horizon={horizon}
+                minEvents={minEvents}
+              />
+            )}
+            {activeTab === "Screener" && (
+              <ScreenerTab
+                universeMode={universe}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+              />
+            )}
+            {activeTab === "Raw Tables" && (
+              <RawTablesTab
+                ticker={ticker}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+              />
+            )}
+            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && activeTab !== "Screener" && activeTab !== "Raw Tables" && (
+              <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
+            )}
+          </div>
+        </div>
       </main>
+    </div>
+  );
+}
+
+/* ==================== MetricCard ==================== */
+function MetricCard({ label, value, note, tone, accent }: { label: string; value: string; note: string; tone: number | null; accent?: string }) {
+  let color = "#94a3b8";
+  if (accent) color = accent;
+  else if (tone !== null && tone !== undefined) color = signedColor(Number(tone));
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 border-l-4" style={{ borderLeftColor: color }}>
+      <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">{label}</div>
+      <div className="text-base font-bold" style={{ color }}>{value}</div>
+      <div className="text-[11px] text-neutral-500 truncate mt-1">{note}</div>
+    </div>
+  );
+}
+
+/* ==================== OverviewTab ==================== */
+function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
+  if (isLoading) return <div className="text-neutral-400 text-sm">Loading overview...</div>;
+  if (!data || data.error) return <div className="text-red-400 text-sm">{data?.error || "No data"}</div>;
+
+  const chartData = (data.price_chart || []).map((p: any) => {
+    const sig = (data.signal_overlay || []).find((s: any) => s.date === p.date);
+    return { ...p, signal: sig?.signal || null, signalScore: sig?.score ?? null };
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Price Chart + Top Brokers */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">Price, Volume, and Signal Context</h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" domain={["auto", "auto"]} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <Tooltip
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                />
+                <Bar yAxisId="right" dataKey="volume" fill="#334155" opacity={0.3} />
+                <Line yAxisId="left" type="monotone" dataKey="close" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                {chartData
+                  .filter((d: any) => d.signalScore !== null)
+                  .map((d: any, i: number) => (
+                    <ReferenceLine key={i} x={d.date} stroke="#b7791f" strokeDasharray="4 4" yAxisId="left" />
+                  ))}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-neutral-200 mb-2">Top Brokers</h3>
+            <p className="text-xs text-neutral-500 mb-2">Broker net buy/sell on analysis date only</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-neutral-500 border-b border-neutral-800">
+                    <th className="text-left py-1">Side</th>
+                    <th className="text-left py-1">Broker</th>
+                    <th className="text-left py-1">Type</th>
+                    <th className="text-right py-1">Net</th>
+                    <th className="text-left py-1 pl-2">5D</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.broker_summary || []).map((row: any, i: number) => (
+                    <tr key={i} className="border-b border-neutral-800/50">
+                      <td className="py-1" style={{ color: row.side === "Buy" ? "#10b981" : "#f43f5e" }}>{row.side}</td>
+                      <td className="py-1 text-neutral-200 font-mono">{row.broker}</td>
+                      <td className="py-1 text-neutral-400">{row.type}</td>
+                      <td className="py-1 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                      <td className="py-1 pl-2 text-neutral-400 font-mono">{row.spark}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-neutral-200 mb-2">Price Performance</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-neutral-500 border-b border-neutral-800">
+                    <th className="text-left py-1">Period</th>
+                    <th className="text-right py-1">Return</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.price_performance || []).map((row: any, i: number) => (
+                    <tr key={i} className="border-b border-neutral-800/50">
+                      <td className="py-1 text-neutral-300">{row.period}</td>
+                      <td className="py-1 text-right font-mono" style={{ color: signedColor(row.value) }}>{fmtPct(row.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Smart Flow + Profile */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">Smart-Money Daily Flow</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data.smart_daily || []} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <Tooltip
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(value: any, name: string) => [fmtRp(Number(value)), name]}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="smart_net"
+                  fill="#10b981"
+                  shape={(props: any) => {
+                    const { x, y, width, height, payload } = props;
+                    const color = payload.smart_net >= 0 ? "#10b981" : "#f43f5e";
+                    return <rect x={x} y={y} width={width} height={height} fill={color} opacity={0.8} rx={2} />;
+                  }}
+                />
+                <Line yAxisId="right" type="monotone" dataKey="cumulative_net" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <ReferenceLine yAxisId="left" y={0} stroke="#64748b" strokeWidth={1} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">Profile Net Flow</h3>
+          {(data.profile_flow || []).length === 0 ? (
+            <p className="text-xs text-neutral-500">No profile flow for this window.</p>
+          ) : (
+            <div className="space-y-3">
+              {(data.profile_flow || []).map((row: any, i: number) => {
+                const maxAbs = Math.max(...(data.profile_flow || []).map((r: any) => Math.abs(r.net)), 1);
+                const width = Math.max(3, (Math.abs(row.net) / maxAbs) * 100);
+                return (
+                  <div key={i}>
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span className="text-neutral-200 font-semibold">{row.label}</span>
+                      <span className="font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
+                    </div>
+                    <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+            {/* Broker Detail by Profile */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
+        {(data.profile_broker_detail || []).length === 0 ? (
+          <p className="text-xs text-neutral-500">No broker detail for this window.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-neutral-500 border-b border-neutral-800">
+                  <th className="text-left py-1.5 pr-2">Profile</th>
+                  <th className="text-left py-1.5 pr-2">Broker</th>
+                  <th className="text-left py-1.5 pr-2">Type</th>
+                  <th className="text-right py-1.5 pr-2">Buy</th>
+                  <th className="text-right py-1.5 pr-2">Sell</th>
+                  <th className="text-right py-1.5 pr-2">Net</th>
+                  <th className="text-right py-1.5 pr-2">Freq</th>
+                  <th className="text-right py-1.5 pr-2">Days</th>
+                  <th className="text-right py-1.5">Avg/Tx</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.profile_broker_detail || []).map((row: any, i: number) => (
+                  <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                    <td className="py-1.5 pr-2 text-neutral-300 font-semibold">{row.profile}</td>
+                    <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
+                    <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.freq.toLocaleString("id-ID")}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.days}</td>
+                    <td className="py-1.5 text-right font-mono text-neutral-400">{fmtRp(row.avg_value_tx)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
