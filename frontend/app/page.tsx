@@ -17,12 +17,19 @@ function WatchlistFetcher({ ticker, onRemove }: { ticker: string; onRemove?: (t:
   const { data, isLoading, error } = useSWR(`/api/bandar/detail/${ticker}?window_days=20`, fetcher, { revalidateOnFocus: false });
 
   if (isLoading) return (
-     <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 flex items-center justify-between h-[80px] animate-pulse shadow-sm">
-        <div className="flex items-center gap-3">
-            <div className="w-12 h-5 bg-[#08090C] rounded-md"></div>
-            <div className="w-16 h-4 bg-[#08090C] rounded-md"></div>
+     <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 h-[84px] flex flex-col justify-between animate-pulse shadow-sm">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <div className="w-12 h-5 bg-[#1A1D24] rounded-md"></div>
+                <div className="w-20 h-4 bg-[#1A1D24] rounded-md"></div>
+            </div>
+            <div className="w-16 h-6 bg-[#1A1D24] rounded-md"></div>
         </div>
-        <div className="w-16 h-6 bg-[#08090C] rounded-md"></div>
+        <div className="flex items-center justify-between border-t border-white/[0.02] pt-2">
+            <div className="w-10 h-3 bg-[#1A1D24] rounded-sm"></div>
+            <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
+            <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
+        </div>
      </div>
   );
   
@@ -50,13 +57,11 @@ export default function HomeMobile() {
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
 
-  // Terminal Boot Animation
   useEffect(() => {
     const timer = setTimeout(() => setBooted(true), 1200);
     return () => clearTimeout(timer);
   }, []);
 
-  // Load Watchlist from LocalStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(LS_KEY);
@@ -70,13 +75,11 @@ export default function HomeMobile() {
     setLoaded(true);
   }, []);
 
-  // Fetch lightweight Universe for Search Autocomplete
-  const { data: universeData } = useSWR("/api/bandar/universe/all", fetcher, { revalidateOnFocus: false });
-  const allTickers = universeData?.tickers || [];
-
-  // Fetch Proxy Date (BBCA) untuk Status Indikator yang Super Cepat
   const { data: dateData } = useSWR("/api/bandar/dates/BBCA", fetcher, { revalidateOnFocus: false });
   const latestDate = dateData?.dates?.[dateData.dates.length - 1] || "SYNCING...";
+
+  const { data: universeData } = useSWR("/api/bandar/universe/all", fetcher, { revalidateOnFocus: false });
+  const allTickers = universeData?.tickers || [];
 
   function saveList(list: string[]) {
     setMyList(list);
@@ -103,13 +106,7 @@ export default function HomeMobile() {
     return (
       <div className="min-h-[100dvh] bg-[#08090C] flex flex-col items-center justify-center text-orange-400 font-mono selection:bg-transparent">
         <div className="relative w-28 h-28 mb-5 animate-pulse drop-shadow-[0_0_20px_rgba(251,146,60,0.3)]">
-          <Image 
-            src="/logo.png" 
-            alt="InvestOwl Logo" 
-            fill 
-            className="object-contain" 
-            priority 
-          />
+          <Image src="/logo.png" alt="InvestOwl Logo" fill className="object-contain" priority />
         </div>
         <div className="text-xs font-bold tracking-[0.3em] uppercase animate-pulse">Initializing System</div>
         <div className="text-[10px] text-orange-400/50 mt-2 tracking-widest">Loading InvestOwl Engine...</div>
@@ -121,16 +118,11 @@ export default function HomeMobile() {
     <div className="min-h-[100dvh] bg-[#08090C] text-neutral-200 selection:bg-blue-500/30">
       <main className="max-w-xl mx-auto p-4 md:p-6 space-y-6 pb-24">
         
-        {/* HEADER SECTION */}
+        {/* HEADER SECTION (Bersih tanpa logo ganda) */}
         <header className="flex items-center justify-between border-b border-white/[0.07] pb-3">
           <div>
-              <div className="flex items-center gap-2 mb-1">
-                  <div className="relative w-5 h-5">
-                      <Image src="/logo.png" alt="InvestOwl" fill className="object-contain" priority />
-                  </div>
-                  <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-orange-400/90">InvestOwl</span>
-              </div>
               <h1 className="text-xl font-semibold text-white tracking-tight leading-none">IDX Terminal</h1>
+              <div className="text-[10px] font-mono text-neutral-500 mt-1.5 uppercase tracking-wider">System Dashboard</div>
           </div>
           <div className="text-right flex flex-col items-end">
               <div className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Status</div>
@@ -198,7 +190,7 @@ export default function HomeMobile() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search ticker (e.g. BBCA)..."
-                      className="w-full bg-[#08090C] border border-white/[0.07] rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-100 outline-none focus:border-blue-500/50 uppercase font-mono placeholder:normal-case placeholder:font-sans"
+                      className="w-full bg-[#08090C] border border-white/[0.07] rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-100 outline-none focus:border-orange-400/50 uppercase font-mono placeholder:normal-case placeholder:font-sans"
                   />
               </div>
               
@@ -213,7 +205,7 @@ export default function HomeMobile() {
                           className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border font-bold font-mono transition-all active:scale-[0.98] ${
                           added
                               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 opacity-60 cursor-default"
-                              : "bg-[#08090C] text-neutral-300 border-white/[0.07] hover:border-blue-500/50 hover:text-blue-400"
+                              : "bg-[#08090C] text-neutral-300 border-white/[0.07] hover:border-orange-400/50 hover:text-orange-400"
                           }`}
                       >
                           <Icon icon={added ? "ph:check-bold" : "ph:plus-bold"} width="12" />
@@ -228,13 +220,32 @@ export default function HomeMobile() {
           )}
 
           <div className="grid gap-3">
-              {loaded && myList.map((ticker) => (
-                 <WatchlistFetcher 
-                    key={ticker} 
-                    ticker={ticker} 
-                    onRemove={editing ? removeTicker : undefined} 
-                 />
-              ))}
+              {!loaded ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 h-[84px] flex flex-col justify-between animate-pulse shadow-sm">
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                              <div className="w-12 h-5 bg-[#1A1D24] rounded-md"></div>
+                              <div className="w-20 h-4 bg-[#1A1D24] rounded-md"></div>
+                          </div>
+                          <div className="w-16 h-6 bg-[#1A1D24] rounded-md"></div>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-white/[0.02] pt-2">
+                          <div className="w-10 h-3 bg-[#1A1D24] rounded-sm"></div>
+                          <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
+                          <div className="w-12 h-3 bg-[#1A1D24] rounded-sm"></div>
+                      </div>
+                  </div>
+                ))
+              ) : (
+                myList.map((ticker) => (
+                   <WatchlistFetcher 
+                      key={ticker} 
+                      ticker={ticker} 
+                      onRemove={editing ? removeTicker : undefined} 
+                   />
+                ))
+              )}
           </div>
 
           {loaded && myList.length === 0 && (
@@ -280,6 +291,9 @@ export default function HomeMobile() {
            </button>
         </div>
       </nav>
+    </div>
+  );
+}
     </div>
   );
 }

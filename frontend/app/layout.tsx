@@ -1,28 +1,42 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import Image from "next/image";
 import "./globals.css";
+import BottomNav from "@/components/layout/BottomNav";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SM Tracker — Saham & Bandarmologi IDX",
-  description: "Pelacak data saham dan bandarmologi Bursa Efek Indonesia",
+  title: "InvestOwl Terminal",
+  description: "Dashboard Bandarmologi IDX",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="id" className="dark">
-      <body className="bg-neutral-950 text-neutral-100 min-h-screen">
-        {/* Header aplikasi */}
-        <header className="border-b border-neutral-800 bg-neutral-900 px-4 py-2 flex items-center justify-between">
-          <h1 className="font-bold text-lg tracking-tight">
-            <span className="text-emerald-500">SM</span> Tracker
-          </h1>
-          <span className="text-xs text-neutral-500">
- Dashboard Bandarmologi IDX
-          </span>
-        </header>
+    <html lang="en">
+      <body className={`${inter.className} bg-[#08090C] text-white antialiased`}>
+        {/* GLOBAL TOP NAVIGATION */}
+        <nav className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] bg-[#0F1117] sticky top-0 z-40">
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-5 h-5">
+              <Image src="/logo.png" alt="InvestOwl" fill className="object-contain" priority />
+            </div>
+            <span className="text-sm font-bold tracking-[0.15em] uppercase text-orange-400">InvestOwl</span>
+          </div>
+          <span className="text-[10px] font-medium text-neutral-500 hidden sm:block">Dashboard Bandarmologi IDX</span>
+        </nav>
+        
+        {/* Konten Halaman */}
+        <div className="pb-16">
+            {children}
+        </div>
 
-        {children}
+        {/* GLOBAL BOTTOM NAVIGATION */}
+        <BottomNav />
       </body>
     </html>
   );
