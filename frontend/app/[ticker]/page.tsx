@@ -53,6 +53,7 @@ import CausalityTab from "@/components/analysis/CausalityTab";
 import ValidationTab from "@/components/analysis/ValidationTab";
 import ScreenerTab from "@/components/analysis/ScreenerTab";
 import RawTablesTab from "@/components/analysis/RawTablesTab";
+import InvestOwlLoader from "@/components/ui/InvestOwlLoader";
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = [
