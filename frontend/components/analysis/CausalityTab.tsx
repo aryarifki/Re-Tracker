@@ -25,7 +25,7 @@ export default function CausalityTab({ ticker, analysisDate, windowDays }: Causa
   const granger = causalityData.granger_test;
   const score = detailData?.conviction?.score ?? detailData?.conviction_score ?? detailData?.score ?? 0;
   
-  let brokerNote = detailData?.conviction?.broker_note || detailData?.broker_note;
+  let brokerNote = detailData?.conviction_breakdown?.broker_note || detailData?.conviction?.broker_note || detailData?.broker_note;
   if (!brokerNote && detailData?.verdict) {
     const v = detailData.verdict;
     const matchBroker = v.match(/Broker ([A-Z0-9]+) is/i);

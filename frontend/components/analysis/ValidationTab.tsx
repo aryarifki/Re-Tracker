@@ -112,7 +112,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
         {sortedScanData.length === 0 ? (
           <div className="text-neutral-500 text-xs text-center py-8">No broker passes the current validation settings.</div>
         ) : (
-          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
+          <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead className="sticky top-0 bg-[#0F1117] z-10">
                 <tr className="text-neutral-500 border-b border-white/[0.05] bg-[#08090C]">
@@ -200,7 +200,7 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
             </div>
 
             {/* Event Study Table */}
-            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
+            <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead className="bg-[#0F1117]">
                   <tr className="text-neutral-500 border-b border-white/[0.05] bg-[#08090C]">
