@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
-import Image from "next/image";
 import { Icon } from "@iconify/react";
 import TickerCard from "@/components/home/TickerCard";
+import InvestOwlLoader from "@/components/ui/InvestOwlLoader";
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 const LS_KEY = "tradepulse_watchlist";
@@ -103,13 +103,11 @@ export default function HomeMobile() {
 
   if (!booted) {
     return (
-      <div className="min-h-[100dvh] bg-[#08090C] flex flex-col items-center justify-center text-orange-400 font-mono selection:bg-transparent">
-        <div className="relative w-28 h-28 mb-5 animate-pulse drop-shadow-[0_0_20px_rgba(251,146,60,0.3)]">
-          <Image src="/logo.png" alt="InvestOwl Logo" fill sizes="112px" className="object-contain" priority />
-        </div>
-        <div className="text-xs font-bold tracking-[0.3em] uppercase animate-pulse">Initializing System</div>
-        <div className="text-[10px] text-orange-400/50 mt-2 tracking-widest">Loading InvestOwl Engine...</div>
-      </div>
+      <InvestOwlLoader 
+        title="INITIALIZING SYSTEM" 
+        subtitle="Loading InvestOwl Engine..." 
+        fullScreen={true} 
+      />
     );
   }
 
