@@ -114,7 +114,7 @@ export default function CausalityTab({ ticker, analysisDate, windowDays }: Causa
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         
         {/* Matrix 1: Participant */}
-        <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm flex flex-col h-[400px]">
+        <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm flex flex-col h-fit">
             <div className="flex items-center gap-2 mb-4 border-b border-white/[0.05] pb-3 flex-shrink-0">
                 <Icon icon="ph:users-three-duotone" className="text-neutral-400" width="18" height="18" />
                 <h3 className="text-sm font-semibold text-neutral-200">Participant Causality</h3>
@@ -122,7 +122,7 @@ export default function CausalityTab({ ticker, analysisDate, windowDays }: Causa
           
             <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2 flex-grow">
                 <table className="w-full text-xs text-left whitespace-nowrap">
-                <thead className="sticky top-0 bg-[#0F1117] z-10">
+                <thead className="bg-[#0F1117]">
                     <tr className="text-neutral-500 border-b border-white/[0.05] bg-[#08090C]">
                         <th className="py-2.5 px-3 font-medium rounded-tl-md">Participant</th>
                         <th className="py-2.5 px-3 text-right font-medium">Lag</th>
