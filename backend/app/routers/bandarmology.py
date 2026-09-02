@@ -59,7 +59,6 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
     flow_win = flow_df[(flow_df["date"] >= win_start) & (flow_df["date"] <= ts)]
     act_win = activity_df[(activity_df["date"] >= win_start) & (activity_df["date"] <= ts)]
 
-    # ── Return harga ──
     def ret(periods: int):
         sub = price_df[price_df["date"] <= ts].sort_values("date")
         if len(sub) <= periods:
@@ -69,25 +68,21 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
             return None
         return float(sub.iloc[-1]["close"]) / base - 1
 
-    # ── Foreign net 5 hari ──
     foreign_5d = None
     if not flow_win.empty and "foreign_net_broker" in flow_win.columns:
         foreign_5d = float(
             flow_win.sort_values("date").tail(5)["foreign_net_broker"].fillna(0).sum()
         )
 
-    # ── Top brokers ──
     top_buy, top_sell = analysis.top_net_broker_summary(ticker, trade_date=ts, top_n=6)
 
-    # ── Sinyal terakhir ──
     signal_row = {}
     if not flow_win.empty:
         signal_row = flow_win.sort_values("date").iloc[-1].to_dict()
 
-    # ── Conviction score (replica bobot app.py) ──
     causality = analysis.causality_foreign_vs_price(ticker, max_lags=5)
     p = None if causality is None else causality.get("min_p_value")
-    if p is None or p != p:  # None atau NaN
+    if p is None or p != p:
         p_score = 50
     elif p <= 0.01:
         p_score = 100
@@ -127,7 +122,6 @@ def metrics(ticker: str, date: str | None = None, window: int = 30):
 
     score = p_score * 0.30 + s_score * 0.30 + f_score * 0.20 + w_score * 0.20
 
-    # ── Smart cumulative ──
     smart_cum = None
     if not act_win.empty and "broker_code" in act_win.columns:
         act_win = act_win.copy()
@@ -205,7 +199,7 @@ def broker_compare(ticker: str, window: int = 30, mode: str = "cumulative"):
         rec = {"date": str(idx)}
         for c in pivot.columns:
             v = row[c]
-            rec[c] = float(v) if v == v else None  # NaN -> None
+            rec[c] = float(v) if v == v else None
         data.append(rec)
     return {"data": data}
 
@@ -872,7 +866,6 @@ def universe_tickers(mode: str):
 
 _BROKERFLOW_CACHE: dict = {"ts": 0.0, "data": {}}
 
-
 def _broker_compare_data(activity, broker_codes, mode):
     if activity.empty or not broker_codes:
         return []
@@ -889,6 +882,118 @@ def _broker_compare_data(activity, broker_codes, mode):
         for col in pivot.columns:
             r[col] = float(row[col]) if pd.notna(row[col]) else None
         rows.append(r)
+    return rows
+
+def _broker_distribution_data(activity, dist_start, dist_end):
+    dist = activity[(activity["date"] >= dist_start) & (activity["date"] <= dist_end)].copy()
+    if dist.empty:
+        return {"buyers": [], "sellers": [], "edges": []}
+    dist = (
+        dist.groupby(["broker_code", "participant_type"], dropna=False)
+        .agg(
+            buy_value=("buy_value", "sum"),
+            sell_value=("sell_value", "sum"),
+            net_value=("net_value", "sum"),
+            frequency=("frequency", "sum"),
+            buy_lot=("buy_lot", "sum"),
+            sell_lot=("sell_lot", "sum"),
+            buy_avg_price=("buy_avg_price", "mean"),
+            sell_avg_price=("sell_avg_price", "mean"),
+        )
+        .reset_index()
+    )
+    buyers = dist[dist["net_value"] > 0].copy().sort_values("net_value", ascending=False)
+    sellers = dist[dist["net_value"] < 0].copy().sort_values("net_value", ascending=True)
+
+    buyer_rows = buyers.head(8).reset_index(drop=True)
+    seller_rows = sellers.head(8).reset_index(drop=True)
+    buyer_rows["remaining"] = buyer_rows["net_value"].astype(float)
+    seller_rows["remaining"] = seller_rows["net_value"].abs().astype(float)
+    edges = []
+    seller_idx = 0
+    for buyer_i in range(len(buyer_rows)):
+        buyer_left = float(buyer_rows.loc[buyer_i, "remaining"])
+        while buyer_left > 1e-9 and seller_idx < len(seller_rows):
+            seller_left = float(seller_rows.loc[seller_idx, "remaining"])
+            if seller_left <= 1e-9:
+                seller_idx += 1
+                continue
+            matched = min(buyer_left, seller_left)
+            edges.append({
+                "buyer_code": str(buyer_rows.loc[buyer_i, "broker_code"]),
+                "buyer_type": _participant_label(buyer_rows.loc[buyer_i, "participant_type"]),
+                "seller_code": str(seller_rows.loc[seller_idx, "broker_code"]),
+                "seller_type": _participant_label(seller_rows.loc[seller_idx, "participant_type"]),
+                "matched_value": float(matched),
+            })
+            buyer_left -= matched
+            seller_rows.loc[seller_idx, "remaining"] = seller_left - matched
+            if seller_rows.loc[seller_idx, "remaining"] <= 1e-9:
+                seller_idx += 1
+        buyer_rows.loc[buyer_i, "remaining"] = buyer_left
+
+    return {
+        "buyers": [
+            {
+                "broker": str(row["broker_code"]),
+                "type": _participant_label(row["participant_type"]),
+                "buy_value": float(row["buy_value"]),
+                "sell_value": float(row["sell_value"]),
+                "net_value": float(row["net_value"]),
+                "freq": float(row["frequency"]),
+                "buy_lot": float(row["buy_lot"]) if pd.notna(row["buy_lot"]) else None,
+                "buy_avg": float(row["buy_avg_price"]) if pd.notna(row["buy_avg_price"]) else None,
+            }
+            for _, row in buyers.head(10).iterrows()
+        ],
+        "sellers": [
+            {
+                "broker": str(row["broker_code"]),
+                "type": _participant_label(row["participant_type"]),
+                "buy_value": float(row["buy_value"]),
+                "sell_value": float(row["sell_value"]),
+                "net_value": float(row["net_value"]),
+                "freq": float(row["frequency"]),
+                "sell_lot": float(row["sell_lot"]) if pd.notna(row["sell_lot"]) else None,
+                "sell_avg": float(row["sell_avg_price"]) if pd.notna(row["sell_avg_price"]) else None,
+            }
+            for _, row in sellers.head(10).iterrows()
+        ],
+        "edges": edges,
+        "dist_date": str(dist_end.date()),
+    }
+
+
+def _broker_summary_table(dist_data):
+    buyers = dist_data.get("buyers", [])
+    sellers = dist_data.get("sellers", [])
+    rows = []
+    max_len = max(len(buyers), len(sellers))
+    for i in range(min(max_len, 10)):
+        row = {}
+        if i < len(buyers):
+            b = buyers[i]
+            row.update({
+                "buy_broker": b["broker"],
+                "buy_type": b["type"],
+                "buy_value": b["buy_value"],
+                "buy_lot": b.get("buy_lot"),
+                "buy_avg": b.get("buy_avg"),
+            })
+        else:
+            row.update({"buy_broker": "", "buy_type": "", "buy_value": None, "buy_lot": None, "buy_avg": None})
+        if i < len(sellers):
+            s = sellers[i]
+            row.update({
+                "sell_broker": s["broker"],
+                "sell_type": s["type"],
+                "sell_value": abs(s["sell_value"]),
+                "sell_lot": s.get("sell_lot"),
+                "sell_avg": s.get("sell_avg"),
+            })
+        else:
+            row.update({"sell_broker": "", "sell_type": "", "sell_value": None, "sell_lot": None, "sell_avg": None})
+        rows.append(row)
     return rows
 
 
@@ -908,7 +1013,7 @@ def broker_flow_detail(
 ):
     import time as _time
     # Cache key harus memasukkan parameter dist_mode dan dist_end agar FastAPI me-refresh datanya
-    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(broker_codes) + "|" + str(flow_mode) + "|" + str(dist_mode) + "|" + str(dist_start) + "|" + str(dist_end)
+    cache_key = f"{ticker}|{analysis_date}|{window_days}|{broker_codes}|{flow_mode}|{dist_mode}|{dist_start}|{dist_end}"
     now = _time.time()
     cached = _BROKERFLOW_CACHE["data"].get(cache_key)
     if cached is not None and (now - _BROKERFLOW_CACHE["ts"]) < 300:
@@ -948,21 +1053,31 @@ def broker_flow_detail(
 
     compare_data = _broker_compare_data(activity_window, selected, flow_mode)
 
-    # ================= LOGIKA KALENDER DISTRIBUSI =================
-    if dist_mode == "Single day" and dist_date:
-        dist_start_ts = pd.Timestamp(dist_date)
-        dist_end_ts = pd.Timestamp(dist_date)
-    elif dist_mode == "Date range" and dist_start and dist_end:
-        dist_start_ts = pd.Timestamp(dist_start)
-        dist_end_ts = pd.Timestamp(dist_end)
+    # ================= LOGIKA KALENDER DISTRIBUSI YANG AMAN DARI ERROR =================
+    def _parse_ts(d_str, fallback):
+        # Fallback jika string kosong, null, atau tidak valid dari frontend
+        if not d_str or d_str in ("undefined", "null", ""):
+            return fallback
+        try:
+            return pd.Timestamp(d_str)
+        except Exception:
+            return fallback
+
+    if dist_mode == "Single day":
+        dist_start_ts = _parse_ts(dist_date, analysis_ts)
+        dist_end_ts = _parse_ts(dist_date, analysis_ts)
+    elif dist_mode == "Date range":
+        dist_start_ts = _parse_ts(dist_start, window_start)
+        dist_end_ts = _parse_ts(dist_end, analysis_ts)
     else:
-        # Fallback default sama dengan window_start & analysis_ts jika kalender mati
+        # Fallback default
         dist_start_ts = window_start
         dist_end_ts = analysis_ts
 
-    # Potong data khusus untuk rentang yang dipilih di kalender UI Next.js
-    dist_data = _broker_distribution_data_range(activity_df, dist_start_ts, dist_end_ts)
+    # Tarik data kalender MENGGUNAKAN FUNGSI ASLI YANG SUDAH DIKEMBALIKAN (bukan '_range')
+    dist_data = _broker_distribution_data(activity_df, dist_start_ts, dist_end_ts)
 
+    # TABEL SUMMARY (Fungsi yang hilang sudah dikembalikan)
     summary = _broker_summary_table(dist_data)
 
     detail_rows = []
