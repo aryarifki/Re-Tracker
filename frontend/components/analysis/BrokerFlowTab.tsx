@@ -31,14 +31,6 @@ function signedColor(n: number): string {
   return n >= 0 ? "#10b981" : "#f43f5e";
 }
 
-function getTypeChip(type: string) {
-  const t = type?.toUpperCase() || "";
-  if (t === "FOREIGN" || t === "ASING") return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-  if (t === "LOCAL" || t === "LOKAL") return "text-indigo-400 bg-indigo-500/10 border-indigo-500/20";
-  if (t === "GOV" || t === "PEMERINTAH") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-  return "text-neutral-400 bg-neutral-800 border-neutral-700";
-}
-
 const COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"];
 
 const PROFILE_OPTIONS = [
@@ -54,13 +46,22 @@ const PROFILE_OPTIONS = [
 export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ticker: string; analysisDate: string; windowDays: number }) {
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const [flowMode, setFlowMode] = useState("Cumulative");
-  const [distMode, setDistMode] = useState("Single day");
+  const [distMode, setDistMode] = useState("Date range");
   const [distDate, setDistDate] = useState(analysisDate);
   const [distStart, setDistStart] = useState(analysisDate);
   const [distEnd, setDistEnd] = useState(analysisDate);
   const [profileFilter, setProfileFilter] = useState("all");
 
-  const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "") + "&flow_mode=" + flowMode + (selectedCodes.length > 0 ? "&broker_codes=" + selectedCodes.join(",") : "");
+  // FIX 1: Memasukkan semua variabel mode dan kalender ke dalam Query URL
+  const qs = "?window_days=" + windowDays + 
+             (analysisDate ? "&analysis_date=" + analysisDate : "") + 
+             "&flow_mode=" + flowMode + 
+             "&dist_mode=" + encodeURIComponent(distMode) + 
+             "&dist_date=" + distDate + 
+             "&dist_start=" + distStart + 
+             "&dist_end=" + distEnd + 
+             (selectedCodes.length > 0 ? "&broker_codes=" + selectedCodes.join(",") : "");
+             
   const { data, error, isLoading } = useSWR(
     ticker ? "/api/bandar/broker-flow/" + ticker + qs : null,
     fetcher,
@@ -74,19 +75,28 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     }
   }, [data?.default_codes]);
 
+  // FIX 2: Otomatis memundurkan tanggal `distStart` sesuai dengan rentang `windowDays`
   useEffect(() => {
     if (analysisDate) {
       setDistDate(analysisDate);
-      setDistStart(analysisDate);
       setDistEnd(analysisDate);
+      
+      const dateObj = new Date(analysisDate);
+      if (!isNaN(dateObj.getTime())) {
+         dateObj.setDate(dateObj.getDate() - windowDays);
+         const yyyy = dateObj.getFullYear();
+         const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+         const dd = String(dateObj.getDate()).padStart(2, '0');
+         setDistStart(`${yyyy}-${mm}-${dd}`);
+      }
     }
-  }, [analysisDate]);
+  }, [analysisDate, windowDays]);
 
   const toggleCode = (code: string) => {
     if (selectedCodes.includes(code)) {
       setSelectedCodes(selectedCodes.filter((c) => c !== code));
     } else {
-      if (selectedCodes.length >= 10) return; // limit to 10 for chart readability
+      if (selectedCodes.length >= 10) return; 
       setSelectedCodes([...selectedCodes, code]);
     }
   };
@@ -108,7 +118,6 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
       
       {/* ====== CHART CONTROLS & BROKER SELECTION ====== */}
       <div className="space-y-3">
-        {/* Multi-Select Broker Dropdown */}
         <div className="flex flex-wrap items-center gap-2">
             <select 
               className="bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-1.5 text-sm text-neutral-200 outline-none focus:border-emerald-500/50 min-w-[120px]"
@@ -133,7 +142,6 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
             </div>
         </div>
 
-        {/* Flow Mode */}
         <div>
             <label className="block text-xs font-semibold text-neutral-400 mb-1.5">Flow mode</label>
             <select className="w-full md:w-64 bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-2 text-sm text-neutral-200 outline-none focus:border-blue-500/50" value={flowMode} onChange={(e) => setFlowMode(e.target.value)}>
@@ -271,19 +279,21 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
                     <input type="date" className="w-full md:w-64 bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-2 text-sm text-neutral-200 outline-none font-mono" value={distDate} onChange={(e) => setDistDate(e.target.value)} />
                 ) : (
                     <div className="flex items-center gap-2">
-                    <input type="date" className="bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-2 text-sm text-neutral-200 outline-none font-mono" value={distStart} onChange={(e) => setDistStart(e.target.value)} />
+                    <input type="date" className="w-full md:w-64 bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-2 text-sm text-neutral-200 outline-none font-mono" value={distStart} onChange={(e) => setDistStart(e.target.value)} />
                     <span className="text-neutral-500 text-xs">to</span>
-                    <input type="date" className="bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-2 text-sm text-neutral-200 outline-none font-mono" value={distEnd} onChange={(e) => setDistEnd(e.target.value)} />
+                    <input type="date" className="w-full md:w-64 bg-[#08090C] border border-white/[0.07] rounded-md px-3 py-2 text-sm text-neutral-200 outline-none font-mono" value={distEnd} onChange={(e) => setDistEnd(e.target.value)} />
                     </div>
                 )}
             </div>
             <p className="text-[11px] text-neutral-500">The flow chart below uses broker-to-broker distribution edges returned by the live API.</p>
         </div>
 
-        {/* Estimated Counterparties (Retained & Styled) */}
-        {dist.edges.length > 0 && (
+        {/* Estimated Counterparties */}
+        {dist.edges.length > 0 ? (
             <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm mt-4">
-                <h4 className="text-sm font-semibold text-neutral-200 mb-4">Estimated Counterparties on {dist.dist_start || "-"}{dist.dist_end !== dist.dist_start ? " to " + dist.dist_end : ""}</h4>
+                <h4 className="text-sm font-semibold text-neutral-200 mb-4">
+                   Estimated Counterparties on {distMode === "Single day" ? distDate : `${distStart} to ${distEnd}`}
+                </h4>
                 <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-800 space-y-1.5 pr-2">
                 {dist.edges.map((e: any, i: number) => (
                     <div key={i} className="flex items-center justify-between text-xs bg-[#08090C] border border-white/[0.05] rounded-md px-3 py-2">
@@ -302,6 +312,10 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
                     </div>
                 ))}
                 </div>
+            </div>
+        ) : (
+            <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm mt-4 text-center text-xs text-neutral-500 py-6">
+                No distribution data found for the selected dates.
             </div>
         )}
       </div>
