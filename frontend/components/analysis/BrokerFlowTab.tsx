@@ -52,7 +52,6 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
   const [distEnd, setDistEnd] = useState(analysisDate);
   const [profileFilter, setProfileFilter] = useState("all");
 
-  // FIX 1: Memasukkan semua variabel mode dan kalender ke dalam Query URL
   const qs = "?window_days=" + windowDays + 
              (analysisDate ? "&analysis_date=" + analysisDate : "") + 
              "&flow_mode=" + flowMode + 
@@ -62,10 +61,11 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
              "&dist_end=" + distEnd + 
              (selectedCodes.length > 0 ? "&broker_codes=" + selectedCodes.join(",") : "");
              
-  const { data, error, isLoading } = useSWR(
+  // FIX: Tambahkan keepPreviousData: true dan ambil state isValidating
+  const { data, error, isLoading, isValidating } = useSWR(
     ticker ? "/api/bandar/broker-flow/" + ticker + qs : null,
     fetcher,
-    { refreshInterval: 60000, revalidateOnFocus: false }
+    { refreshInterval: 60000, revalidateOnFocus: false, keepPreviousData: true }
   );
 
   useEffect(() => {
@@ -75,7 +75,6 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     }
   }, [data?.default_codes]);
 
-  // FIX 2: Otomatis memundurkan tanggal `distStart` sesuai dengan rentang `windowDays`
   useEffect(() => {
     if (analysisDate) {
       setDistDate(analysisDate);
@@ -101,8 +100,9 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     }
   };
 
-  if (isLoading) return <div className="p-8 border border-white/[0.07] bg-[#0F1117] rounded-xl flex items-center justify-center gap-3 text-neutral-400"><Icon icon="ph:spinner-gap-duotone" className="animate-spin" width="20" /> <span className="text-sm font-medium">Extracting broker flow data...</span></div>;
-  if (error || data?.error) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl">{data?.error || "Error"}</div>;
+  // FIX: Hanya render loading besar di awal (ketika data benar-benar kosong)
+  if (isLoading && !data) return <div className="p-8 border border-white/[0.07] bg-[#0F1117] rounded-xl flex items-center justify-center gap-3 text-neutral-400"><Icon icon="ph:spinner-gap-duotone" className="animate-spin" width="20" /> <span className="text-sm font-medium">Extracting broker flow data...</span></div>;
+  if (error) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl">Error processing data.</div>;
 
   const chartData = data?.compare_chart || [];
   const dist = data?.distribution || { buyers: [], sellers: [], edges: [], dist_start: "-", dist_end: "-" };
@@ -114,7 +114,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
   const filteredProfileDetail = profileFilter === "all" ? profileDetail : profileDetail.filter((r: any) => r.profile_key === profileFilter);
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 transition-opacity duration-300 ${isValidating ? "opacity-70" : "opacity-100"}`}>
       
       {/* ====== CHART CONTROLS & BROKER SELECTION ====== */}
       <div className="space-y-3">
@@ -261,7 +261,10 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2 border-b border-white/[0.05] pb-2">
             <Icon icon="ph:link-bold" className="text-neutral-500" width="16" />
-            <h3 className="text-sm font-semibold text-neutral-200">Broker Distribution</h3>
+            <h3 className="text-sm font-semibold text-neutral-200 flex items-center gap-2">
+                Broker Distribution
+                {isValidating && <Icon icon="ph:spinner-gap-duotone" className="animate-spin text-emerald-500" width="14" />}
+            </h3>
         </div>
         
         <div className="space-y-3">
