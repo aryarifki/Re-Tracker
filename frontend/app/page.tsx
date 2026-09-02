@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
-import Link from "next/link";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
 import TickerCard from "@/components/home/TickerCard";
@@ -116,9 +115,8 @@ export default function HomeMobile() {
 
   return (
     <div className="min-h-[100dvh] bg-[#08090C] text-neutral-200 selection:bg-blue-500/30">
-      <main className="max-w-xl mx-auto p-4 md:p-6 space-y-6 pb-24">
+      <main className="max-w-xl mx-auto p-4 md:p-6 space-y-6 pb-6">
         
-        {/* HEADER SECTION (Bersih tanpa logo ganda) */}
         <header className="flex items-center justify-between border-b border-white/[0.07] pb-3">
           <div>
               <h1 className="text-xl font-semibold text-white tracking-tight leading-none">IDX Terminal</h1>
@@ -133,7 +131,6 @@ export default function HomeMobile() {
           </div>
         </header>
 
-        {/* INTRO & AUTHOR CARD */}
         <section className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-4 relative overflow-hidden shadow-sm">
            <div className="absolute top-0 left-0 w-full h-[2px] bg-blue-500 opacity-80"></div>
            <div className="flex items-center gap-2 mb-3">
@@ -159,7 +156,6 @@ export default function HomeMobile() {
            </div>
         </section>
 
-        {/* WATCHLIST SECTION */}
         <section className="space-y-4 pt-1">
           <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
             <h3 className="text-sm font-semibold text-neutral-100 flex items-center gap-2">
@@ -256,44 +252,6 @@ export default function HomeMobile() {
           )}
         </section>
       </main>
-
-      {/* BOTTOM NAVIGATION BAR */}
-      <nav className="fixed bottom-0 left-0 w-full bg-[#0F1117]/95 backdrop-blur-md border-t border-white/[0.05] z-50">
-        <div className="flex justify-around items-center h-16 max-w-xl mx-auto px-2 pb-1">
-           {/* 1. Watchlist (Active) */}
-           <Link href="/" className="flex flex-col items-center justify-center w-full h-full text-orange-400">
-              <Icon icon="ph:binoculars-fill" width="22" />
-              <span className="text-[9px] mt-1 font-semibold">Watchlist</span>
-           </Link>
-           
-           {/* 2. Analysis */}
-           <Link href="/BBCA" className="flex flex-col items-center justify-center w-full h-full text-neutral-500 hover:text-neutral-300 transition-colors">
-              <Icon icon="ph:magnifying-glass-duotone" width="22" />
-              <span className="text-[9px] mt-1 font-medium">Analysis</span>
-           </Link>
-           
-           {/* 3. Screener */}
-           <button className="flex flex-col items-center justify-center w-full h-full text-neutral-500 hover:text-neutral-300 transition-colors">
-              <Icon icon="ph:funnel-duotone" width="22" />
-              <span className="text-[9px] mt-1 font-medium">Screener</span>
-           </button>
-           
-           {/* 4. Portfolio */}
-           <button className="flex flex-col items-center justify-center w-full h-full text-neutral-500 hover:text-neutral-300 transition-colors">
-              <Icon icon="ph:briefcase-duotone" width="22" />
-              <span className="text-[9px] mt-1 font-medium">Portfolio</span>
-           </button>
-           
-           {/* 5. Settings */}
-           <button className="flex flex-col items-center justify-center w-full h-full text-neutral-500 hover:text-neutral-300 transition-colors">
-              <Icon icon="ph:gear-duotone" width="22" />
-              <span className="text-[9px] mt-1 font-medium">Settings</span>
-           </button>
-        </div>
-      </nav>
-    </div>
-  );
-}
     </div>
   );
 }
