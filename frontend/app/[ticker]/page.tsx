@@ -359,12 +359,12 @@ export default function TickerPage() {
           {/* Metric Cards */}
           {data && !data.error && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-              <MetricCard "/100"} + label="Conviction Score" note="weighted model" tone="{data.conviction_score}" value="{data.conviction_score?.toFixed(1)"/>
-              <MetricCard accent="{signalColor(data.signal_score)}" label="Signal" note="selected date" tone="{null}" value="{data.signal}"/>
-              <MetricCard label="5D Return" note="price context" tone="{data.ret_5d}" value="{fmtPct(data.ret_5d)}"/>
-              <MetricCard label="Foreign Net 5D" note="broker summary" tone="{data.foreign_5d}" value="{fmtRp(data.foreign_5d)}"/>
-              <MetricCard "-"} label="Top Buyer" note="{fmtRp(data.top_buyer?.net)}" tone="{1}" value="{data.top_buyer?.broker" ||/>
-              <MetricCard " + 0) broker days"} label="Smart Cumulative" note="{(data.smart_daily?.length" tone="{data.smart_cumulative}" value="{fmtRp(data.smart_cumulative)}" ||/>
+              <MetricCard label="Conviction Score" value={data.conviction_score?.toFixed(1) + "/100"} note="weighted model" tone={data.conviction_score} />
+              <MetricCard label="Signal" value={data.signal} note="selected date" tone={null} accent={signalColor(data.signal_score)} />
+              <MetricCard label="5D Return" value={fmtPct(data.ret_5d)} note="price context" tone={data.ret_5d} />
+              <MetricCard label="Foreign Net 5D" value={fmtRp(data.foreign_5d)} note="broker summary" tone={data.foreign_5d} />
+              <MetricCard label="Top Buyer" value={data.top_buyer?.broker || "-"} note={fmtRp(data.top_buyer?.net)} tone={1} />
+              <MetricCard label="Smart Cumulative" value={fmtRp(data.smart_cumulative)} note={(data.smart_daily?.length || 0) + " broker days"} tone={data.smart_cumulative} />
             </div>
           )}
 
@@ -407,17 +407,32 @@ export default function TickerPage() {
 
           {/* Tab Content */}
           <div className="pb-8">
-            {activeTab === "Overview" && <OverviewTab data="{data}" isLoading="{isLoading}"/>}
-            {activeTab === "Broker Flow" && <BrokerFlowTab analysisDate="{analysisDate}" ticker="{ticker}" windowDays="{windowDays}"/>}
-            {activeTab === "Causality" && <CausalityTab analysisDate="{analysisDate}" detailData="{data}" ticker="{ticker}" windowDays="{windowDays}"/>}
+            {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
+            {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
+            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
             {activeTab === "Validation" && (
-              <ValidationTab analysisDate="{analysisDate}" horizon="{horizon}" minEvents="{minEvents}" ticker="{ticker}" universeMode="{universe}" windowDays="{windowDays}"/>
+              <ValidationTab
+                ticker={ticker}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+                universeMode={universe}
+                horizon={horizon}
+                minEvents={minEvents}
+              />
             )}
             {activeTab === "Screener" && (
-              <ScreenerTab analysisDate="{analysisDate}" universeMode="{universe}" windowDays="{windowDays}"/>
+              <ScreenerTab
+                universeMode={universe}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+              />
             )}
             {activeTab === "Raw Tables" && (
-              <RawTablesTab analysisDate="{analysisDate}" ticker="{ticker}" windowDays="{windowDays}"/>
+              <RawTablesTab
+                ticker={ticker}
+                analysisDate={analysisDate}
+                windowDays={windowDays}
+              />
             )}
             {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && activeTab !== "Screener" && activeTab !== "Raw Tables" && (
               <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
@@ -460,19 +475,22 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
           <h3 className="text-sm font-bold text-neutral-200 mb-3">Price, Volume, and Signal Context</h3>
           <div className="h-72">
-            <ResponsiveContainer height="100%" width="100%">
-              <ComposedChart 0, 5 5, bottom: data="{chartData}" left: margin="{{" right: top: }}>
-                <CartesianGrid opacity="{0.3}" stroke="#334155" strokeDasharray="3 3"/>
-                <XAxis "#64748b" 11, dataKey="date" fill: fontSize: stroke="#334155" tick="{{" }}/>
-                <YAxis "#64748b" "auto"]} 11, domain="{["auto"," fill: fontSize: stroke="#334155" tick="{{" yAxisId="left" }}/>
-                <YAxis "#64748b" 11, fill: fontSize: orientation="right" stroke="#334155" tick="{{" yAxisId="right" }}/>
-                <Tooltip "#171717", "#94a3b8" "12px" "1px "8px", #334155", background: border: borderRadius: color: contentStyle="{{" fontSize: labelStyle="{{" solid }}/>
-                <Bar dataKey="volume" fill="#334155" opacity="{0.3}" yAxisId="right"/>
-                <Line dataKey="close" dot="{false}" stroke="#3b82f6" strokeWidth="{2}" type="monotone" yAxisId="left"/>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" domain={["auto", "auto"]} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <Tooltip
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                />
+                <Bar yAxisId="right" dataKey="volume" fill="#334155" opacity={0.3} />
+                <Line yAxisId="left" type="monotone" dataKey="close" stroke="#3b82f6" strokeWidth={2} dot={false} />
                 {chartData
                   .filter((d: any) => d.signalScore !== null)
                   .map((d: any, i: number) => (
-                    <ReferenceLine key="{i}" stroke="#b7791f" strokeDasharray="4 4" x="{d.date}" yAxisId="left"/>
+                    <ReferenceLine key={i} x={d.date} stroke="#b7791f" strokeDasharray="4 4" yAxisId="left" />
                   ))}
               </ComposedChart>
             </ResponsiveContainer>
@@ -538,22 +556,29 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
           <h3 className="text-sm font-bold text-neutral-200 mb-3">Smart-Money Daily Flow</h3>
           <div className="h-64">
-            <ResponsiveContainer height="100%" width="100%">
-              <ComposedChart 0, 5 5, []} bottom: data="{data.smart_daily" left: margin="{{" right: top: || }}>
-                <CartesianGrid opacity="{0.3}" stroke="#334155" strokeDasharray="3 3"/>
-                <XAxis "#64748b" 11, dataKey="date" fill: fontSize: stroke="#334155" tick="{{" }}/>
-                <YAxis "#64748b" 11, fill: fontSize: stroke="#334155" tick="{{" yAxisId="left" }}/>
-                <YAxis "#64748b" 11, fill: fontSize: orientation="right" stroke="#334155" tick="{{" yAxisId="right" }}/>
-                <Tooltip "#171717", "#94a3b8" "12px" "1px "8px", #334155", any, background: border: borderRadius: color: contentStyle="{{" fontSize: formatter="{(value:" labelStyle="{{" name: solid }}> [fmtRp(Number(value)), name]}
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data.smart_daily || []} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <Tooltip
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(value: any, name: string) => [fmtRp(Number(value)), name]}
                 />
-                <Bar dataKey="smart_net" fill="#10b981" shape="{(props:" yAxisId="left"> {
+                <Bar
+                  yAxisId="left"
+                  dataKey="smart_net"
+                  fill="#10b981"
+                  shape={(props: any) => {
                     const { x, y, width, height, payload } = props;
                     const color = payload.smart_net >= 0 ? "#10b981" : "#f43f5e";
                     return <rect x={x} y={y} width={width} height={height} fill={color} opacity={0.8} rx={2} />;
                   }}
                 />
-                <Line dataKey="cumulative_net" dot="{false}" stroke="#3b82f6" strokeWidth="{2}" type="monotone" yAxisId="right"/>
-                <ReferenceLine stroke="#64748b" strokeWidth="{1}" y="{0}" yAxisId="left"/>
+                <Line yAxisId="right" type="monotone" dataKey="cumulative_net" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <ReferenceLine yAxisId="left" y={0} stroke="#64748b" strokeWidth={1} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
