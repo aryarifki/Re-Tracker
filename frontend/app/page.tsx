@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import Image from "next/image";
 import { Icon } from "@iconify/react";
 import TickerCard from "@/components/home/TickerCard";
 
@@ -100,10 +101,18 @@ export default function HomeMobile() {
 
   if (!booted) {
     return (
-      <div className="min-h-[100dvh] bg-[#08090C] flex flex-col items-center justify-center text-emerald-500 font-mono selection:bg-transparent">
-        <Icon icon="ph:terminal-window-duotone" width="56" className="mb-5 animate-pulse" />
+      <div className="min-h-[100dvh] bg-[#08090C] flex flex-col items-center justify-center text-orange-400 font-mono selection:bg-transparent">
+        <div className="relative w-28 h-28 mb-5 animate-pulse drop-shadow-[0_0_20px_rgba(251,146,60,0.3)]">
+          <Image 
+            src="/logo.png" 
+            alt="InvestOwl Logo" 
+            fill 
+            className="object-contain" 
+            priority 
+          />
+        </div>
         <div className="text-xs font-bold tracking-[0.3em] uppercase animate-pulse">Initializing System</div>
-        <div className="text-[10px] text-emerald-500/50 mt-2 tracking-widest">Loading Vanguard Engine...</div>
+        <div className="text-[10px] text-orange-400/50 mt-2 tracking-widest">Loading InvestOwl Engine...</div>
       </div>
     );
   }
@@ -115,9 +124,11 @@ export default function HomeMobile() {
         {/* HEADER SECTION */}
         <header className="flex items-center justify-between border-b border-white/[0.07] pb-3">
           <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                  <Icon icon="ph:trend-up-duotone" className="text-emerald-400" width="20" />
-                  <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-emerald-400/90">SM Tracker</span>
+              <div className="flex items-center gap-2 mb-1">
+                  <div className="relative w-5 h-5">
+                      <Image src="/logo.png" alt="InvestOwl" fill className="object-contain" priority />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-orange-400/90">InvestOwl</span>
               </div>
               <h1 className="text-xl font-semibold text-white tracking-tight leading-none">IDX Terminal</h1>
           </div>
@@ -239,7 +250,7 @@ export default function HomeMobile() {
       <nav className="fixed bottom-0 left-0 w-full bg-[#0F1117]/95 backdrop-blur-md border-t border-white/[0.05] z-50">
         <div className="flex justify-around items-center h-16 max-w-xl mx-auto px-2 pb-1">
            {/* 1. Watchlist (Active) */}
-           <Link href="/" className="flex flex-col items-center justify-center w-full h-full text-emerald-400">
+           <Link href="/" className="flex flex-col items-center justify-center w-full h-full text-orange-400">
               <Icon icon="ph:binoculars-fill" width="22" />
               <span className="text-[9px] mt-1 font-semibold">Watchlist</span>
            </Link>
