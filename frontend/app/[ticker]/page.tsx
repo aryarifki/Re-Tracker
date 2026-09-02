@@ -338,15 +338,6 @@ export default function TickerPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-white mb-3">Smart Money Dashboard</h1>
             <div className="flex flex-wrap gap-2 mt-2">
               <span className="text-[11px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-3 py-1.5 shadow-sm">
-                {ticker}
-              </span>
-              <span className="text-[11px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-3 py-1.5 shadow-sm">
-                Analysis {data?.analysis_date || "..."}
-              </span>
-              <span className="text-[11px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-3 py-1.5 shadow-sm">
-                Broker data {data?.analysis_date || "..."}
-              </span>
-              <span className="text-[11px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-3 py-1.5 shadow-sm">
                 Window {data?.window_start || "..."} to {data?.analysis_date || "..."}
               </span>
             </div>
@@ -609,7 +600,8 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           )}
         </div>
       </div>
-            {/* Broker Detail by Profile */}
+      
+      {/* Broker Detail by Profile */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
         {(data.profile_broker_detail || []).length === 0 ? (
