@@ -15,14 +15,12 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from models import BrokerFlow
-from routers import stocks, broker  # broker: Langkah 2
+from routers import stocks, broker
+from app.routers import bandarmology
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: pipeline/cron lama Anda pegang DB; API hanya read-only di sini.
     yield
-    # Shutdown
-
 
 app = FastAPI(
     title="SM Tracker API",
@@ -43,12 +41,7 @@ app.add_middleware(
 # ── Routers ──
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
-
-try:
-    from routers import bandarmology
-    app.include_router(bandarmology.router, prefix=settings.API_V1_PREFIX)
-except ImportError:
-    pass
+app.include_router(bandarmology.router)
 
 @app.get("/", tags=["Health"])
 def root():
@@ -62,14 +55,3 @@ def health_check(db: Session = Depends(get_db)):
         "status": "healthy",
         "latest_date": latest_date.isoformat() if latest_date else None
     }
-
-
-@app.get("/api/status", tags=["Health"])
-def system_status(db: Session = Depends(get_db)):
-    """Endpoint dinamis untuk status dashboard & tanggal data terbaru di PostgreSQL."""
-    latest_date = db.query(func.max(BrokerFlow.date)).scalar()
-    return {
-        "status": "ONLINE",
-        "latest_date": latest_date.isoformat() if latest_date else "2026-09-01"
-    }
-    
