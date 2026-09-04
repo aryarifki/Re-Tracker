@@ -316,16 +316,17 @@ def backfill(tickers: str = "BBCA", start: str = "2024-01-01", end: str | None =
 # Daily Summary — dengan cache 5 menit
 # ══════════════════════════════════════════════════════════
 
-_SUMMARY_CACHE: dict = {"ts": 0.0, "data": None}
+_SUMMARY_CACHE: dict = {}
 
 @router.get("/daily-summary")
 def daily_summary(universe_mode: str = "all", refresh: int = 0):
     import time as _time
 
+    cache_key = universe_mode
     now = _time.time()
-    cached = _SUMMARY_CACHE["data"]
-    if cached is not None and not refresh and (now - _SUMMARY_CACHE["ts"]) < 300:
-        return cached
+    cached = _SUMMARY_CACHE.get(cache_key)
+    if cached is not None and not refresh and (now - cached["ts"]) < 300:
+        return cached["data"]
 
     tickers = get_dynamic_universe(universe_mode)
     price_df = storage.read_prices(tickers)
@@ -375,15 +376,14 @@ def daily_summary(universe_mode: str = "all", refresh: int = 0):
         "top_conviction": top,
     })
 
-    _SUMMARY_CACHE["ts"] = now
-    _SUMMARY_CACHE["data"] = result
+    _SUMMARY_CACHE[cache_key] = {"ts": now, "data": result}
     return result
 
 # ============================================================
 # Ticker Detail Endpoint
 # ============================================================
 
-_DETAIL_CACHE: dict = {"ts": 0.0, "data": {}}
+_DETAIL_CACHE: dict = {}
 
 def _clean_detail(obj):
     if isinstance(obj, dict):
@@ -713,18 +713,10 @@ def ticker_detail(
     min_net_buy_b: float = 0.0,
 ):
     import time as _time
-    cache_key = ticker + "|" + str(analysis_date) + "|" + str(window_days) + "|" + str(horizon)
-    now = _time.time()
-    cached = _DETAIL_CACHE["data"].get(cache_key)
-    if cached is not None and (now - _DETAIL_CACHE["ts"]) < 300:
-        return cached
-
     ticker = ticker.upper().strip()
-    price_df = storage.read_prices([ticker]).copy()
-    broker_df = storage.read_broker_flow([ticker]).copy()
-    activity_df = storage.read_broker_activity([ticker]).copy()
 
-    if broker_df.empty or activity_df.empty:
+    activity_df = storage.read_broker_activity([ticker]).copy()
+    if activity_df.empty:
         return {"error": "No broker history for " + ticker}
 
     if analysis_date:
@@ -732,6 +724,18 @@ def ticker_detail(
     else:
         dates = sorted(activity_df[activity_df["ticker"] == ticker]["date"].dt.date.unique().tolist())
         analysis_ts = pd.Timestamp(max(dates)) if dates else pd.Timestamp.now()
+
+    cache_key = f"{ticker}|{analysis_ts.date()}|{window_days}|{horizon}"
+    now = _time.time()
+    cached = _DETAIL_CACHE.get(cache_key)
+    if cached is not None and (now - cached["ts"]) < 300:
+        return cached["data"]
+
+    price_df = storage.read_prices([ticker]).copy()
+    broker_df = storage.read_broker_flow([ticker]).copy()
+
+    if broker_df.empty:
+        return {"error": "No broker history for " + ticker}
 
     window_start = analysis_ts - pd.Timedelta(days=window_days)
     price_window = price_df[(price_df["date"] >= window_start) & (price_df["date"] <= analysis_ts)].copy()
@@ -862,8 +866,7 @@ def ticker_detail(
         "activity_date": str(activity_date.date()) if activity_date else None,
     })
 
-    _DETAIL_CACHE["ts"] = now
-    _DETAIL_CACHE["data"][cache_key] = result
+    _DETAIL_CACHE[cache_key] = {"ts": now, "data": result}
     return result
 
 # ============================================================
@@ -900,7 +903,7 @@ def universe_tickers(mode: str):
 # Broker Flow Tab Endpoint
 # ============================================================
 
-_BROKERFLOW_CACHE: dict = {"ts": 0.0, "data": {}}
+_BROKERFLOW_CACHE: dict = {}
 
 def _broker_compare_data(activity, broker_codes, mode):
     if activity.empty or not broker_codes:
@@ -1048,13 +1051,6 @@ def broker_flow_detail(
     dist_end: Optional[str] = None
 ):
     import time as _time
-    # Cache key harus memasukkan parameter dist_mode dan dist_end agar FastAPI me-refresh datanya
-    cache_key = f"{ticker}|{analysis_date}|{window_days}|{broker_codes}|{flow_mode}|{dist_mode}|{dist_start}|{dist_end}"
-    now = _time.time()
-    cached = _BROKERFLOW_CACHE["data"].get(cache_key)
-    if cached is not None and (now - _BROKERFLOW_CACHE["ts"]) < 300:
-        return cached
-
     ticker = ticker.upper().strip()
     activity_df = storage.read_broker_activity([ticker]).copy()
 
@@ -1066,6 +1062,13 @@ def broker_flow_detail(
     else:
         dates = sorted(activity_df[activity_df["ticker"] == ticker]["date"].dt.date.unique().tolist())
         analysis_ts = pd.Timestamp(max(dates)) if dates else pd.Timestamp.now()
+
+    # Cache key harus memasukkan parameter dist_mode dan dist_end agar FastAPI me-refresh datanya
+    cache_key = f"{ticker}|{analysis_ts.date()}|{window_days}|{broker_codes}|{flow_mode}|{dist_mode}|{dist_start}|{dist_end}"
+    now = _time.time()
+    cached = _BROKERFLOW_CACHE.get(cache_key)
+    if cached is not None and (now - cached["ts"]) < 300:
+        return cached["data"]
 
     # Data Window Induk (Untuk Grafik)
     window_start = analysis_ts - pd.Timedelta(days=window_days)
@@ -1169,8 +1172,7 @@ def broker_flow_detail(
         "detail_rows": detail_rows,
     })
 
-    _BROKERFLOW_CACHE["ts"] = now
-    _BROKERFLOW_CACHE["data"][cache_key] = result
+    _BROKERFLOW_CACHE[cache_key] = {"ts": now, "data": result}
     return result
 
 @router.get("/causality/{ticker}")
