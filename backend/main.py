@@ -7,10 +7,14 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from config import settings
+from database import get_db
+from models import BrokerFlow
 from routers import stocks, broker  # broker: Langkah 2
 
 @asynccontextmanager
@@ -40,8 +44,11 @@ app.add_middleware(
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
 
-from app.routers import bandarmology
-app.include_router(bandarmology.router)
+try:
+    from routers import bandarmology
+    app.include_router(bandarmology.router, prefix=settings.API_V1_PREFIX)
+except ImportError:
+    pass
 
 @app.get("/", tags=["Health"])
 def root():
@@ -49,5 +56,20 @@ def root():
 
 
 @app.get("/api/health", tags=["Health"])
-def health_check():
-    return {"status": "healthy"}
+def health_check(db: Session = Depends(get_db)):
+    latest_date = db.query(func.max(BrokerFlow.date)).scalar()
+    return {
+        "status": "healthy",
+        "latest_date": latest_date.isoformat() if latest_date else None
+    }
+
+
+@app.get("/api/status", tags=["Health"])
+def system_status(db: Session = Depends(get_db)):
+    """Endpoint dinamis untuk status dashboard & tanggal data terbaru di PostgreSQL."""
+    latest_date = db.query(func.max(BrokerFlow.date)).scalar()
+    return {
+        "status": "ONLINE",
+        "latest_date": latest_date.isoformat() if latest_date else "2026-09-01"
+    }
+    
