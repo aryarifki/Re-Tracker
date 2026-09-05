@@ -1,65 +1,42 @@
-"""SQLAlchemy models mapping to EXISTING tables created by the data pipeline.
-
-Schema verified via `\d prices` and `\d broker_flow` on 2025.
-IMPORTANT: Do NOT run metadata.create_all() — the cron pipeline owns the schema.
-This API layer is READ-ONLY.
-"""
+"""SQLAlchemy models mapping to EXISTING tables created by the data pipeline."""
 from __future__ import annotations
-
-from datetime import date as date_type
-from datetime import datetime
-
-from sqlalchemy import BigInteger, Date, DateTime, Numeric, String, Text
+from datetime import date as date_type, datetime
+from decimal import Decimal
+from sqlalchemy import BigInteger, Date, DateTime, Index, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-
 from database import Base
 
-
 class Price(Base):
-    """Mirror of `prices` (OHLCV daily bars).
-    PK komposit: (date, ticker). OHLC boleh NULL di DB → gunakan Optional.
-    """
     __tablename__ = "prices"
-    __table_args__ = {"extend_existing": True}
-
+    __table_args__ = (
+        Index("ix_prices_ticker_date_desc", "ticker", "date"),
+        {"extend_existing": True},
+    )
     date: Mapped[date_type] = mapped_column(Date, primary_key=True)
     ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
-
-    open: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    high: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    low: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    close: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    open: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    high: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    low: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    close: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     volume: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-
 class BrokerFlow(Base):
-    """Mirror of `broker_flow` (daily bandarmology summary).
-    PK komposit: (date, ticker).
-    """
     __tablename__ = "broker_flow"
-    __table_args__ = {"extend_existing": True}
-
+    __table_args__ = (
+        Index("ix_broker_flow_ticker_date_desc", "ticker", "date"),
+        {"extend_existing": True},
+    )
     date: Mapped[date_type] = mapped_column(Date, primary_key=True)
     ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
-
-    # ── Sinyal ──
     bandar_signal: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    bandar_signal_score: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    bandar_signal_score: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
     foreign_signal: Mapped[str | None] = mapped_column(String(50), nullable=True)
-
-    # ── Net Broker per kategori ──
-    foreign_net_broker: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    local_net_broker: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    gov_net_broker: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-
-    # ── Net Flow ──
-    foreign_net_flow: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    domestic_net_flow: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-    total_value: Mapped[float | None] = mapped_column(Numeric, nullable=True)
-
-    # ── Narasi otomatis dari pipeline ──
+    foreign_net_broker: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    local_net_broker: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    gov_net_broker: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    foreign_net_flow: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    domestic_net_flow: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     conclusion_broker: Mapped[str | None] = mapped_column(Text, nullable=True)
     conclusion_flow: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # ── Metadata ──
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

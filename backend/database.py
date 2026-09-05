@@ -1,24 +1,34 @@
-"""SQLAlchemy engine & session management."""
+"""SQLAlchemy async engine & session management."""
 from __future__ import annotations
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
+from collections.abc import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 from config import settings
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, pool_size=10, max_overflow=20)
+db_url = str(settings.DATABASE_URL)
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+engine = create_async_engine(
+    db_url,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=1800,
+    connect_args={"server_settings": {"default_transaction_read_only": "on"}},
+)
 
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False
+)
 
 class Base(DeclarativeBase):
     pass
 
-
-def get_db():
-    """FastAPI dependency — one session per request."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise

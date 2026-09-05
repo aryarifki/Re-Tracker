@@ -1,57 +1,62 @@
-"""FastAPI entry point — SM Tracker API.
-
-Run locally:
-    uvicorn main:app --reload --port 8000
-"""
+"""FastAPI entry point — InvestOwl API."""
 from __future__ import annotations
-
+import asyncio
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, Depends
+from typing import Annotated
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
-from database import get_db
+from database import engine, get_db
 from models import BrokerFlow
 from routers import stocks, broker
 from app.routers import bandarmology
 
+DbSession = Annotated[AsyncSession, Depends(get_db)]
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(select(1))
+    except Exception as exc:
+        raise RuntimeError(f"Database connection failed on startup: {exc}") from exc
     yield
+    await engine.dispose()
 
 app = FastAPI(
-    title="SM Tracker API",
-    description="Backend untuk pelacak saham & bandarmologi IDX (migrasi dari Streamlit).",
+    title="InvestOwl API",
+    description="Enterprise-grade IDX Bandarmology & Stock Tracker Service",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# ── CORS: izinkan Next.js (localhost:3000) mengakses API ──
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-# ── Routers ──
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
-app.include_router(bandarmology.router)
+app.include_router(bandarmology.router, prefix=settings.API_V1_PREFIX)
 
-@app.get("/", tags=["Health"])
-def root():
-    return {"status": "ok", "service": "SM Tracker API", "version": "1.0.0"}
-
-
-@app.get("/api/health", tags=["Health"])
-def health_check(db: Session = Depends(get_db)):
-    latest_date = db.query(func.max(BrokerFlow.date)).scalar()
-    return {
-        "status": "healthy",
-        "latest_date": latest_date.isoformat() if latest_date else None
-    }
+@app.get("/health", tags=["Health"])
+async def health_check(db: DbSession):
+    try:
+        async with asyncio.timeout(2.0):
+            stmt = select(func.max(BrokerFlow.date))
+            result = await db.execute(stmt)
+            latest_date = result.scalar()
+            return {
+                "status": "healthy",
+                "database": "connected",
+                "latest_data_date": latest_date.isoformat() if latest_date else None,
+            }
+    except TimeoutError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database response timed out")
+    except Exception as err:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Healthcheck failure: {err}")
