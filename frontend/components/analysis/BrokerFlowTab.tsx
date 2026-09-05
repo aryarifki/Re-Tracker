@@ -162,7 +162,7 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" strokeOpacity={0.05} vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#737373" }} stroke="#333" axisLine={false} tickLine={false} dy={10} />
                 <YAxis tick={{ fontSize: 10, fill: "#737373" }} stroke="#333" axisLine={false} tickLine={false} label={{ value: 'Cumulative Net Value, Rp B', angle: -90, position: 'insideLeft', fill: '#737373', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "#0F1117", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px", color: "#e5e5e5" }} labelStyle={{ color: "#a3a3a3", marginBottom: "4px" }} formatter={(value: any, name: string) => ["Rp " + Number(value).toFixed(2) + " B", name]} />
+                <Tooltip contentStyle={{ background: "#0F1117", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px", color: "#e5e5e5" }} labelStyle={{ color: "#a3a3a3", marginBottom: "4px" }} formatter={(value: any, name: any) => ["Rp " + Number(value).toFixed(2) + " B", name]} />
                 <ReferenceLine y={0} stroke="#525252" strokeWidth={1} />
                 {selectedCodes.map((code: string, i: number) => (
                   <Line key={code} type="monotone" dataKey={code} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, stroke: "#08090C", strokeWidth: 2 }} connectNulls />

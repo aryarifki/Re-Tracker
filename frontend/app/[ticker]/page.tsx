@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -401,7 +402,7 @@ export default function TickerPage() {
           <div className="pb-8">
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
-            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
+            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
             {activeTab === "Validation" && (
               <ValidationTab
                 ticker={ticker}
@@ -557,7 +558,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
                 <Tooltip
                   contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
                   labelStyle={{ color: "#94a3b8" }}
-                  formatter={(value: any, name: string) => [fmtRp(Number(value)), name]}
+                  formatter={(value: any, name: any) => [fmtRp(Number(value)), name]}
                 />
                 <Bar
                   yAxisId="left"
