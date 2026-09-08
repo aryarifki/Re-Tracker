@@ -312,6 +312,51 @@ def backfill(tickers: str = "BBCA", start: str = "2024-01-01", end: str | None =
     threading.Thread(target=_job, daemon=True).start()
     return {"status": "started", "tickers": tickers.split(","), "start": start}
 
+# ============================================================
+# System Status & Master Refresh Endpoints
+# ============================================================
+
+@router.get("/system-status")
+def get_system_status():
+    """Mengembalikan jumlah ticker aktif dan tanggal transaksi terakhir di database."""
+    from sqlalchemy import text
+    from idx_bandarmology import storage
+    try:
+        with storage.engine.connect() as conn:
+            # Hitung emiten aktif
+            tickers_cnt = conn.execute(
+                text("SELECT COUNT(*) FROM tickers WHERE is_active = TRUE")
+            ).scalar() or 0
+            
+            # Ambil tanggal terakhir data broker flow
+            latest_dt = conn.execute(
+                text("SELECT MAX(date) FROM broker_flow")
+            ).scalar()
+            latest_date_str = str(latest_dt) if latest_dt else "-"
+
+        return {
+            "status": "ok",
+            "active_tickers": int(tickers_cnt),
+            "latest_date": latest_date_str,
+        }
+    except Exception as e:
+        return {"status": "error", "active_tickers": 0, "latest_date": "-", "error": str(e)}
+
+
+@router.post("/universe/refresh")
+def refresh_universe():
+    """Trigger sinkronisasi ulang master tickers langsung dari IDX."""
+    from idx_bandarmology import universe
+    try:
+        count = universe.refresh_master_tickers(force=True)
+        return {
+            "status": "success",
+            "count": count,
+            "message": f"Berhasil memperbarui {count} emiten dari IDX.",
+        }
+    except Exception as e:
+        return {"status": "error", "count": 0, "error": str(e)}
+
 # ══════════════════════════════════════════════════════════
 # Daily Summary — dengan cache 5 menit
 # ══════════════════════════════════════════════════════════
