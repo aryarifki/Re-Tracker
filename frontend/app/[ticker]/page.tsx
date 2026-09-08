@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import useSWR from "swr";
-import { Icon } from "@iconify/react"; // Impor ikon ditambahkan
+import useSWR, { useSWRConfig } from "swr";
+import { Icon } from "@iconify/react";
 import {
   LineChart,
   Line,
@@ -12,15 +12,19 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
   Bar,
   ComposedChart,
   ReferenceLine,
 } from "recharts";
 
+import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
+import CausalityTab from "@/components/analysis/CausalityTab";
+import ValidationTab from "@/components/analysis/ValidationTab";
+import ScreenerTab from "@/components/analysis/ScreenerTab";
+import RawTablesTab from "@/components/analysis/RawTablesTab";
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-/* ==================== Formatters ==================== */
 function fmtRp(n: number | null): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
   const sign = n < 0 ? "-" : "";
@@ -49,48 +53,26 @@ function signalColor(score: number | null): string {
   return "#f43f5e";
 }
 
-import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
-import CausalityTab from "@/components/analysis/CausalityTab";
-import ValidationTab from "@/components/analysis/ValidationTab";
-import ScreenerTab from "@/components/analysis/ScreenerTab";
-import RawTablesTab from "@/components/analysis/RawTablesTab";
-import InvestOwlLoader from "@/components/ui/InvestOwlLoader";
-
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = [
-  "watchlist", 
-  "idx80", 
-  "lq45", 
-  "idx_high_dividend", 
-  "idx_bumn", 
-  "idx_smc", 
-  "esg_kehati", 
-  "idxenergy", 
-  "idxtrans", 
-  "idxinfra", 
-  "idxtechno", 
-  "idxpropert", 
-  "idxfinance", 
-  "idxhealth", 
-  "idxcyclic", 
-  "idxnoncyc", 
-  "idxindust", 
-  "idxbasic", 
-  "bisnis-27"
+  "watchlist", "idx80", "lq45", "idx_high_dividend", "idx_bumn", 
+  "idx_smc", "esg_kehati", "idxenergy", "idxtrans", "idxinfra", 
+  "idxtechno", "idxpropert", "idxfinance", "idxhealth", "idxcyclic", 
+  "idxnoncyc", "idxindust", "idxbasic", "bisnis-27"
 ];
 const WINDOWS = [20, 30, 60, 90, 180];
 const HORIZONS = [1, 3, 5, 10];
 
-/* ==================== Page ==================== */
 export default function TickerPage() {
   const params = useParams();
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const ticker = String(params.ticker || "").toUpperCase();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
 
-  /* Sidebar controls state */
+  /* Sidebar Controls */
   const [universe, setUniverse] = useState("watchlist");
   const [searchTerm, setSearchTerm] = useState("");
   const [analysisDate, setAnalysisDate] = useState("");
@@ -99,12 +81,35 @@ export default function TickerPage() {
   const [minEvents, setMinEvents] = useState(5);
   const [minNetBuy, setMinNetBuy] = useState(0);
 
-  /* Fetch universe tickers */
+  /* Backfill manual range state */
+  const [backfillStart, setBackfillStart] = useState("");
+  const [backfillEnd, setBackfillEnd] = useState("");
+  const [pipelineRunning, setPipelineRunning] = useState<string | null>(null);
+  const [isRefreshingMaster, setIsRefreshingMaster] = useState(false);
+
+  /* SWR Data Fetching */
   const { data: universeData } = useSWR("/api/bandar/universe/" + universe, fetcher);
   const { data: allUniverseData, isLoading: isLoadingUniverse } = useSWR("/api/bandar/universe/all", fetcher);
-  
+  const { data: statusData, mutate: mutateStatus } = useSWR("/api/bandar/system-status", fetcher);
+  const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
+
   const tickers = universeData?.tickers || [];
   const allTickers = allUniverseData?.tickers || [];
+  const availableDates: string[] = datesData?.dates || [];
+
+  /* Inisialisasi tanggal backfill & analysisDate default */
+  useEffect(() => {
+    if (availableDates.length > 0 && !analysisDate) {
+      const latest = availableDates[availableDates.length - 1];
+      setAnalysisDate(latest);
+      setBackfillEnd(latest);
+      
+      // Default start backfill: 90 hari sebelum tanggal terakhir
+      const d = new Date(latest);
+      d.setDate(d.getDate() - 90);
+      setBackfillStart(d.toISOString().split("T")[0]);
+    }
+  }, [availableDates, analysisDate]);
 
   const filteredTickers = useMemo(() => {
     const term = searchTerm.trim().toUpperCase();
@@ -112,11 +117,7 @@ export default function TickerPage() {
     return allTickers.filter((t: string) => t.includes(term)).slice(0, 10);
   }, [tickers, allTickers, searchTerm]);
 
-  /* Fetch dates for selected ticker */
-  const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
-  const availableDates = datesData?.dates || [];
-
-  /* Fetch detail */
+  /* Detail Data Fetch */
   const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "");
   const { data, error, isLoading } = useSWR(
     ticker ? "/api/bandar/detail/" + ticker + qs : null,
@@ -124,18 +125,87 @@ export default function TickerPage() {
     { refreshInterval: 60000 }
   );
 
-  /* Auto-select latest date when dates load */
-  useEffect(() => {
-    if (availableDates.length > 0 && !analysisDate) {
-      setAnalysisDate(availableDates[availableDates.length - 1]);
-    }
-  }, [availableDates, analysisDate]);
-
-  /* Navigate to different ticker */
   const goToTicker = (t: string) => {
     if (t && t !== ticker) {
       router.push("/" + t);
       setSidebarOpen(false);
+    }
+  };
+
+  /* Helper pemilihan tanggal kalender dengan auto-snap ke hari bursa terdekat */
+  const handleCalendarChange = (selected: string) => {
+    if (!selected || availableDates.length === 0) return;
+    if (availableDates.includes(selected)) {
+      setAnalysisDate(selected);
+      return;
+    }
+    // Cari tanggal bursa sebelumnya yang tersedia
+    const priorDates = availableDates.filter((d) => d <= selected);
+    if (priorDates.length > 0) {
+      setAnalysisDate(priorDates[priorDates.length - 1]);
+    } else {
+      setAnalysisDate(availableDates[0]);
+    }
+  };
+
+  /* Action 1: Refresh Master Tickers dari IDX */
+  const handleRefreshMaster = async () => {
+    if (isRefreshingMaster) return;
+    setIsRefreshingMaster(true);
+    try {
+      const res = await fetch("/api/bandar/universe/refresh", { method: "POST" });
+      const json = await res.json();
+      if (json.status === "success") {
+        await mutate("/api/bandar/universe/all");
+        await mutateStatus();
+        alert(`Sukses: ${json.message}`);
+      } else {
+        alert(`Gagal: ${json.error || "Gagal refresh master tickers"}`);
+      }
+    } catch (e: any) {
+      alert(`Error koneksi: ${e.message}`);
+    } finally {
+      setIsRefreshingMaster(false);
+    }
+  };
+
+  /* Action 2: Pipeline Handlers */
+  const runPipeline = async (type: "today" | "missing" | "backfill") => {
+    setPipelineRunning(type);
+    try {
+      let res;
+      if (type === "today") {
+        res = await fetch("/api/bandar/pipeline/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ universe_mode: universe }),
+        });
+      } else if (type === "missing") {
+        const startDate = analysisDate || statusData?.latest_date;
+        const endDate = new Date().toISOString().split("T")[0];
+        res = await fetch("/api/bandar/pipeline/backfill", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ universe_mode: universe, start_date: startDate, end_date: endDate }),
+        });
+      } else {
+        res = await fetch("/api/bandar/pipeline/backfill", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ universe_mode: universe, start_date: backfillStart, end_date: backfillEnd }),
+        });
+      }
+      const json = await res.json();
+      if (res.ok) {
+        alert("Pipeline selesai dijalankan.");
+        mutate(() => true, undefined, { revalidate: true });
+      } else {
+        alert("Pipeline error: " + (json.detail || "Gagal"));
+      }
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setPipelineRunning(null);
     }
   };
 
@@ -145,29 +215,37 @@ export default function TickerPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar Controls */}
       <aside className={
         "fixed lg:sticky top-0 z-50 h-screen w-72 bg-neutral-900 border-r border-neutral-800 overflow-y-auto " +
         "transition-transform duration-300 ease-in-out " +
         (sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0")
       }>
-        <div className="p-4 space-y-5">
-          {/* Header */}
-          <div>
-            <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">IDX Broker Flow</div>
-            <h2 className="text-sm font-bold text-white">Controls</h2>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Smart Flow</div>
+              <h2 className="text-sm font-bold text-white">Controls</h2>
+            </div>
+            <button 
+              onClick={handleRefreshMaster} 
+              disabled={isRefreshingMaster}
+              title="Sinkronisasi Master Tickers dari IDX.co.id"
+              className="p-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-neutral-300 hover:text-orange-400 transition-colors"
+            >
+              <Icon icon="ph:arrows-clockwise-duotone" width="16" className={isRefreshingMaster ? "animate-spin text-orange-400" : ""} />
+            </button>
           </div>
 
-          {/* Universe */}
+          {/* Universe & Live DB Stats */}
           <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Universe</label>
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Universe Filter</label>
             <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none focus:border-orange-500/50"
               value={universe}
               onChange={(e) => setUniverse(e.target.value)}
             >
@@ -175,33 +253,37 @@ export default function TickerPage() {
                 <option key={u} value={u}>{u.toUpperCase()}</option>
               ))}
             </select>
-            <div className="text-[10px] text-neutral-500 mt-1">
-              {universeData?.count || 0} tickers
+            <div className="text-[10px] text-neutral-400 mt-1.5 flex flex-col gap-0.5 bg-neutral-950/40 p-2 rounded border border-neutral-800/80">
+              <span className="flex items-center gap-1.5 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <b>{statusData?.active_tickers ?? "..."}</b> emiten aktif di database
+              </span>
+              <span className="text-neutral-500 font-mono text-[9px]">
+                Data BEI terupdate: <b className="text-neutral-300">{statusData?.latest_date ?? "-"}</b>
+              </span>
             </div>
           </div>
 
-          {/* Analysis Date */}
+          {/* Analysis Date (Calendar Mode) */}
           <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Analysis Date</label>
-            <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Analysis Date</label>
+            <input
+              type="date"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none focus:border-orange-500/50 [color-scheme:dark]"
               value={analysisDate}
-              onChange={(e) => setAnalysisDate(e.target.value)}
-            >
-              {availableDates.map((d: string) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-            {availableDates.length === 0 && (
-              <div className="text-[10px] text-neutral-500 mt-1">Loading dates...</div>
-            )}
+              max={availableDates[availableDates.length - 1] || statusData?.latest_date || ""}
+              onChange={(e) => handleCalendarChange(e.target.value)}
+            />
+            <div className="text-[9px] text-neutral-500 mt-1">
+              Data aktif: <span className="text-neutral-300 font-mono">{analysisDate || "Memuat..."}</span>
+            </div>
           </div>
 
           {/* Broker Window */}
           <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Broker Window</label>
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Broker Window</label>
             <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none"
               value={windowDays}
               onChange={(e) => setWindowDays(Number(e.target.value))}
             >
@@ -213,9 +295,9 @@ export default function TickerPage() {
 
           {/* Validation Horizon */}
           <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Validation Horizon</label>
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Validation Horizon</label>
             <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none"
               value={horizon}
               onChange={(e) => setHorizon(Number(e.target.value))}
             >
@@ -225,126 +307,151 @@ export default function TickerPage() {
             </select>
           </div>
 
-          {/* Min Events */}
-          <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Min Broker Events</label>
-            <input
-              type="number"
-              min={3}
-              max={30}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
-              value={minEvents}
-              onChange={(e) => setMinEvents(Number(e.target.value))}
-            />
-          </div>
-
-          {/* Min Net Buy */}
-          <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Min Net Buy, Rp B</label>
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
-              value={minNetBuy}
-              onChange={(e) => setMinNetBuy(Number(e.target.value))}
-            />
+          {/* Filter Ambang Batas */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Min Events</label>
+              <input
+                type="number"
+                min={3}
+                max={30}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-neutral-200 outline-none"
+                value={minEvents}
+                onChange={(e) => setMinEvents(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Min Buy Rp B</label>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-neutral-200 outline-none"
+                value={minNetBuy}
+                onChange={(e) => setMinNetBuy(Number(e.target.value))}
+              />
+            </div>
           </div>
 
           <hr className="border-neutral-800" />
 
-          {/* Action Buttons */}
+          {/* Action Pipeline Buttons */}
           <div className="space-y-2">
-            <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors">
-              Run latest pipeline to today
+            <button 
+              onClick={() => runPipeline("today")}
+              disabled={pipelineRunning !== null}
+              className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+            >
+              <span>Run latest pipeline</span>
+              {pipelineRunning === "today" && <Icon icon="ph:spinner-gap" className="animate-spin text-orange-400" />}
             </button>
-            <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors">
-              Fetch missing broker dates
+
+            <button 
+              onClick={() => runPipeline("missing")}
+              disabled={pipelineRunning !== null}
+              className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+            >
+              <span>Fetch missing broker dates</span>
+              {pipelineRunning === "missing" && <Icon icon="ph:spinner-gap" className="animate-spin text-orange-400" />}
             </button>
-            <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors">
-              Backfill broker history
-            </button>
+
+            {/* Backfill Range Inputs */}
+            <div className="pt-1">
+              <label className="block text-[9px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Backfill Custom Range</label>
+              <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                <input
+                  type="date"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[10px] text-neutral-300 [color-scheme:dark]"
+                  value={backfillStart}
+                  onChange={(e) => setBackfillStart(e.target.value)}
+                />
+                <input
+                  type="date"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[10px] text-neutral-300 [color-scheme:dark]"
+                  value={backfillEnd}
+                  onChange={(e) => setBackfillEnd(e.target.value)}
+                />
+              </div>
+              <button 
+                onClick={() => runPipeline("backfill")}
+                disabled={pipelineRunning !== null || !backfillStart || !backfillEnd}
+                className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+              >
+                <span>Backfill broker history</span>
+                {pipelineRunning === "backfill" && <Icon icon="ph:spinner-gap" className="animate-spin text-orange-400" />}
+              </button>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="text-[10px] text-neutral-600 pt-2">
-            Data: localhost/bandarmology<br/>
-            Created by: Cugarete
+          <div className="text-[9px] text-neutral-600 pt-2 font-mono">
+            InvestOwl Platform • Port: 8000
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 min-w-0">
-        {/* Mobile header with hamburger */}
+      {/* Main View */}
+      <main className="flex-1 min-w-0 pb-20">
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-neutral-900 border-b border-neutral-800">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg bg-neutral-800 text-neutral-300"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
+          <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300">
+            <Icon icon="ph:list" width="20" />
           </button>
           <span className="font-bold text-white">{ticker}</span>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-4">
 
-          {/* TOP SEARCH BAR */}
-          <div className="mb-6 relative z-40">
-             <div className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 shadow-sm focus-within:border-blue-500/50 transition-colors">
-                <Icon icon="ph:magnifying-glass-duotone" className="text-neutral-500 mr-3" width="22" height="22" />
+          {/* SEARCH BAR (Compact + Amber Glow Effect) */}
+          <div className="mb-5 relative z-40">
+             <div className="flex items-center bg-gradient-to-b from-neutral-900 to-neutral-950 border border-amber-500/30 hover:border-amber-500/60 focus-within:border-amber-500 rounded-xl px-3.5 py-2.5 shadow-[0_0_12px_rgba(245,158,11,0.08)] focus-within:shadow-[0_0_20px_rgba(245,158,11,0.22)] transition-all">
+                <Icon icon="ph:magnifying-glass-duotone" className="text-amber-500/70 mr-2.5" width="18" height="18" />
                 <input
                   type="text"
-                  className="w-full bg-transparent border-none outline-none text-sm text-neutral-200 placeholder-neutral-600 font-mono uppercase tracking-wider"
+                  className="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-neutral-200 placeholder-neutral-500 font-mono uppercase tracking-wider"
                   placeholder="Cari Ticker Saham (Contoh: BBCA)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
              </div>
              
-             {/* Dropdown Pencarian */}
              {searchTerm && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl z-50">
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-xl overflow-hidden shadow-2xl z-50">
                   {isLoadingUniverse && allTickers.length === 0 ? (
-                    <div className="px-4 py-3 text-sm text-neutral-500 font-mono">Memuat daftar saham bursa...</div>
+                    <div className="px-4 py-3 text-xs text-neutral-500 font-mono">Memuat daftar saham bursa...</div>
                   ) : filteredTickers.length > 0 ? (
                     filteredTickers.map((t: string) => (
                       <button
                         key={t}
-                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-mono text-neutral-300 hover:bg-neutral-800 hover:text-blue-400 transition-colors border-b border-neutral-800/50 last:border-0"
+                        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-mono text-neutral-300 hover:bg-neutral-800 hover:text-orange-400 transition-colors border-b border-neutral-800/40 last:border-0"
                         onClick={() => { goToTicker(t); setSearchTerm(""); }}
                       >
                         <span>{t}</span>
-                        <Icon icon="ph:arrow-up-right-bold" className="text-neutral-600" width="14" />
+                        <Icon icon="ph:arrow-up-right-bold" className="text-neutral-600" width="12" />
                       </button>
                     ))
                   ) : (
-                    <div className="px-4 py-3 text-sm text-neutral-500 font-mono">Saham tidak ditemukan</div>
+                    <div className="px-4 py-3 text-xs text-neutral-500 font-mono">Saham tidak ditemukan</div>
                   )}
                 </div>
              )}
           </div>
        
-          {/* Header & Chips Unified */}
-          <div className="mb-5 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-            <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">IDX Broker Flow Research</div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white mb-3">Smart Money Dashboard</h1>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <span className="text-[11px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-3 py-1.5 shadow-sm">
-                Window {data?.window_start || "..."} to {data?.analysis_date || "..."}
+          {/* Header */}
+          <div className="mb-4 bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
+            <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
+            <h1 className="text-lg sm:text-xl font-bold text-white mb-2">Smart Money Dashboard</h1>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[10px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-2.5 py-1 shadow-sm">
+                Window: {data?.window_start || "..."} s/d {data?.analysis_date || "..."}
               </span>
             </div>
           </div>
 
-          {/* Loading / Error */}
-          {isLoading && <div className="text-neutral-400 text-sm mb-4">Loading data...</div>}
-          {error && <div className="text-red-400 text-sm mb-4">Error loading data</div>}
+          {isLoading && <div className="text-neutral-400 text-xs mb-3">Memuat data analisis...</div>}
+          {error && <div className="text-red-400 text-xs mb-3">Gagal mengambil data</div>}
 
           {/* Metric Cards */}
           {data && !data.error && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
               <MetricCard label="Conviction Score" value={data.conviction_score?.toFixed(1) + "/100"} note="weighted model" tone={data.conviction_score} />
               <MetricCard label="Signal" value={data.signal} note="selected date" tone={null} accent={signalColor(data.signal_score)} />
               <MetricCard label="5D Return" value={fmtPct(data.ret_5d)} note="price context" tone={data.ret_5d} />
@@ -354,24 +461,22 @@ export default function TickerPage() {
             </div>
           )}
 
-          {/* Alerts */}
           {data?.alerts?.length > 0 && (
-            <div className="mb-4 bg-amber-950/40 border border-amber-800/50 rounded-xl px-4 py-3">
+            <div className="mb-4 bg-amber-950/40 border border-amber-800/50 rounded-xl px-3.5 py-2.5">
               {data.alerts.map((a: string, i: number) => (
-                <div key={i} className="text-sm text-amber-300">{a}</div>
+                <div key={i} className="text-xs text-amber-300">{a}</div>
               ))}
             </div>
           )}
 
-          {/* Verdict */}
           {data?.verdict && (
-            <div className="mb-4 bg-blue-950/30 border-l-4 border-blue-500 rounded-r-xl px-4 py-3">
-              <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Current read</div>
-              <div className="text-sm text-neutral-200 leading-relaxed">{data.verdict}</div>
+            <div className="mb-4 bg-blue-950/30 border-l-4 border-orange-500 rounded-r-xl px-3.5 py-2.5">
+              <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">Current read</div>
+              <div className="text-xs text-neutral-200 leading-relaxed">{data.verdict}</div>
             </div>
           )}
 
-          {/* Tabs */}
+          {/* Tabs Nav */}
           <div className="border-b border-neutral-800 mb-4">
             <div className="flex gap-1 overflow-x-auto">
               {TABS.map((tab) => (
@@ -379,9 +484,9 @@ export default function TickerPage() {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={
-                    "px-4 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg transition-colors " +
+                    "px-3.5 py-2 text-xs font-semibold whitespace-nowrap rounded-t-lg transition-colors " +
                     (activeTab === tab
-                      ? "text-white bg-neutral-800 border-b-2 border-blue-500"
+                      ? "text-white bg-neutral-800 border-b-2 border-orange-500"
                       : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900")
                   }
                 >
@@ -391,8 +496,8 @@ export default function TickerPage() {
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="pb-8">
+          {/* Tab Views */}
+          <div>
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
             {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
@@ -420,9 +525,6 @@ export default function TickerPage() {
                 windowDays={windowDays}
               />
             )}
-            {activeTab !== "Overview" && activeTab !== "Broker Flow" && activeTab !== "Causality" && activeTab !== "Validation" && activeTab !== "Screener" && activeTab !== "Raw Tables" && (
-              <div className="text-neutral-400 text-sm">{activeTab} tab - coming in next phase</div>
-            )}
           </div>
         </div>
       </main>
@@ -430,24 +532,22 @@ export default function TickerPage() {
   );
 }
 
-/* ==================== MetricCard ==================== */
 function MetricCard({ label, value, note, tone, accent }: { label: string; value: string; note: string; tone: number | null; accent?: string }) {
   let color = "#94a3b8";
   if (accent) color = accent;
   else if (tone !== null && tone !== undefined) color = signedColor(Number(tone));
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 border-l-4" style={{ borderLeftColor: color }}>
-      <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">{label}</div>
-      <div className="text-base font-bold" style={{ color }}>{value}</div>
-      <div className="text-[11px] text-neutral-500 truncate mt-1">{note}</div>
+      <div className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">{label}</div>
+      <div className="text-sm sm:text-base font-bold" style={{ color }}>{value}</div>
+      <div className="text-[10px] text-neutral-500 truncate mt-0.5">{note}</div>
     </div>
   );
 }
 
-/* ==================== OverviewTab ==================== */
 function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
-  if (isLoading) return <div className="text-neutral-400 text-sm">Loading overview...</div>;
-  if (!data || data.error) return <div className="text-red-400 text-sm">{data?.error || "No data"}</div>;
+  if (isLoading) return <div className="text-neutral-400 text-xs">Loading overview...</div>;
+  if (!data || data.error) return <div className="text-red-400 text-xs">{data?.error || "No data"}</div>;
 
   const chartData = (data.price_chart || []).map((p: any) => {
     const sig = (data.signal_overlay || []).find((s: any) => s.date === p.date);
@@ -456,27 +556,26 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 
   return (
     <div className="space-y-4">
-      {/* Price Chart + Top Brokers */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">Price, Volume, and Signal Context</h3>
+          <h3 className="text-xs sm:text-sm font-bold text-neutral-200 mb-3">Price, Volume, and Signal Context</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" domain={["auto", "auto"]} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" domain={["auto", "auto"]} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
                 <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
                   labelStyle={{ color: "#94a3b8" }}
                 />
                 <Bar yAxisId="right" dataKey="volume" fill="#334155" opacity={0.3} />
-                <Line yAxisId="left" type="monotone" dataKey="close" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <Line yAxisId="left" type="monotone" dataKey="close" stroke="#f59e0b" strokeWidth={2} dot={false} />
                 {chartData
                   .filter((d: any) => d.signalScore !== null)
                   .map((d: any, i: number) => (
-                    <ReferenceLine key={i} x={d.date} stroke="#b7791f" strokeDasharray="4 4" yAxisId="left" />
+                    <ReferenceLine key={i} x={d.date} stroke="#10b981" strokeDasharray="3 3" yAxisId="left" />
                   ))}
               </ComposedChart>
             </ResponsiveContainer>
@@ -484,13 +583,13 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-neutral-200 mb-2">Top Brokers</h3>
-            <p className="text-xs text-neutral-500 mb-2">Broker net buy/sell on analysis date only</p>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
+            <h3 className="text-xs font-bold text-neutral-200 mb-1">Top Brokers</h3>
+            <p className="text-[10px] text-neutral-500 mb-2">Net buy/sell pada tanggal analisis</p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-neutral-500 border-b border-neutral-800">
+                  <tr className="text-neutral-500 border-b border-neutral-800 text-[10px]">
                     <th className="text-left py-1">Side</th>
                     <th className="text-left py-1">Broker</th>
                     <th className="text-left py-1">Type</th>
@@ -513,12 +612,12 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             </div>
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-neutral-200 mb-2">Price Performance</h3>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
+            <h3 className="text-xs font-bold text-neutral-200 mb-1">Price Performance</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-neutral-500 border-b border-neutral-800">
+                  <tr className="text-neutral-500 border-b border-neutral-800 text-[10px]">
                     <th className="text-left py-1">Period</th>
                     <th className="text-right py-1">Return</th>
                   </tr>
@@ -535,106 +634,6 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Smart Flow + Profile */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">Smart-Money Daily Flow</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data.smart_daily || []} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} stroke="#334155" />
-                <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
-                  labelStyle={{ color: "#94a3b8" }}
-                  formatter={(value: any, name: string) => [fmtRp(Number(value)), name]}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="smart_net"
-                  fill="#10b981"
-                  shape={(props: any) => {
-                    const { x, y, width, height, payload } = props;
-                    const color = payload.smart_net >= 0 ? "#10b981" : "#f43f5e";
-                    return <rect x={x} y={y} width={width} height={height} fill={color} opacity={0.8} rx={2} />;
-                  }}
-                />
-                <Line yAxisId="right" type="monotone" dataKey="cumulative_net" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                <ReferenceLine yAxisId="left" y={0} stroke="#64748b" strokeWidth={1} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">Profile Net Flow</h3>
-          {(data.profile_flow || []).length === 0 ? (
-            <p className="text-xs text-neutral-500">No profile flow for this window.</p>
-          ) : (
-            <div className="space-y-3">
-              {(data.profile_flow || []).map((row: any, i: number) => {
-                const maxAbs = Math.max(...(data.profile_flow || []).map((r: any) => Math.abs(r.net)), 1);
-                const width = Math.max(3, (Math.abs(row.net) / maxAbs) * 100);
-                return (
-                  <div key={i}>
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="text-neutral-200 font-semibold">{row.label}</span>
-                      <span className="font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
-                    </div>
-                    <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Broker Detail by Profile */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
-        {(data.profile_broker_detail || []).length === 0 ? (
-          <p className="text-xs text-neutral-500">No broker detail for this window.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-neutral-500 border-b border-neutral-800">
-                  <th className="text-left py-1.5 pr-2">Profile</th>
-                  <th className="text-left py-1.5 pr-2">Broker</th>
-                  <th className="text-left py-1.5 pr-2">Type</th>
-                  <th className="text-right py-1.5 pr-2">Buy</th>
-                  <th className="text-right py-1.5 pr-2">Sell</th>
-                  <th className="text-right py-1.5 pr-2">Net</th>
-                  <th className="text-right py-1.5 pr-2">Freq</th>
-                  <th className="text-right py-1.5 pr-2">Days</th>
-                  <th className="text-right py-1.5">Avg/Tx</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data.profile_broker_detail || []).map((row: any, i: number) => (
-                  <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
-                    <td className="py-1.5 pr-2 text-neutral-300 font-semibold">{row.profile}</td>
-                    <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
-                    <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell)}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.freq.toLocaleString("id-ID")}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.days}</td>
-                    <td className="py-1.5 text-right font-mono text-neutral-400">{fmtRp(row.avg_value_tx)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );
