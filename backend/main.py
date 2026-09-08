@@ -17,6 +17,16 @@ from database import get_db
 from models import BrokerFlow
 from routers import stocks, broker
 from app.routers import bandarmology
+from idx_bandarmology.universe import refresh_master_tickers
+
+@app.on_event("startup")
+def startup_event():
+    # Memastikan master ticker selalu terisi di database saat server menyala
+    try:
+        count = refresh_master_tickers(force=False)
+        print(f"[FastAPI Startup] Master tickers siap: {count} emiten aktif.")
+    except Exception as e:
+        print(f"[FastAPI Startup] Gagal memuat master tickers: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
