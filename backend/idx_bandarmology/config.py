@@ -16,11 +16,12 @@ except ModuleNotFoundError:
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 _ROOT = Path(__file__).resolve().parents[2]
+
 load_dotenv(_BACKEND_DIR / ".env")
 load_dotenv(_ROOT / ".env")
 
 # ── paths ─────────────────────────────────────────────────────────────────
-DATA_DIR = _ROOT / "data"
+DATA_DIR = _BACKEND_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 
@@ -33,7 +34,6 @@ def get_database_url() -> str:
     url = os.environ.get("DATABASE_URL", "").strip()
     if url:
         return url
-    # Default local PostgreSQL (Debian/Droidspaces)
     user = os.environ.get("DB_USER", "bandar").strip()
     password = os.environ.get("DB_PASSWORD", "bandar123").strip()
     host = os.environ.get("DB_HOST", "localhost").strip()
@@ -46,6 +46,7 @@ DATABASE_URL = get_database_url()
 # ── secrets ───────────────────────────────────────────────────────────────
 def get_broker_api_token() -> str | None:
     """Read the latest broker API token from `.env` / process env."""
+    load_dotenv(_BACKEND_DIR / ".env")
     load_dotenv(_ROOT / ".env")
     token = (
         os.environ.get("BROKER_API_TOKEN", "").strip()
