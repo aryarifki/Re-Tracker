@@ -1,9 +1,9 @@
 "use client";
-export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
+import { Icon } from "@iconify/react"; // Impor ikon ditambahkan
 import {
   LineChart,
   Line,
@@ -179,50 +179,6 @@ export default function TickerPage() {
             </div>
           </div>
 
-          {/* Search */}
-          <div>
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Search Ticker</label>
-            <input
-              type="text"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200"
-              placeholder="Type ticker..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <div className="mt-1 bg-neutral-800 border border-neutral-700 rounded-lg overflow-hidden">
-                {filteredTickers.map((t: string) => (
-                  <button
-                    key={t}
-                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 hover:text-white"
-                    onClick={() => { goToTicker(t); setSearchTerm(""); }}
-                  >
-                    {t}
-                  </button>
-                ))}
-                {filteredTickers.length === 0 && (
-                  <div className="px-3 py-1.5 text-sm text-neutral-500">No match</div>
-                )}
-              </div>
-            )}
-            {!searchTerm && tickers.length > 0 && (
-              <div className="mt-1 max-h-32 overflow-y-auto bg-neutral-800 border border-neutral-700 rounded-lg">
-                {tickers.slice(0, 20).map((t: string) => (
-                  <button
-                    key={t}
-                    className={
-                      "w-full text-left px-3 py-1 text-xs " +
-                      (t === ticker ? "bg-blue-900/40 text-blue-300 font-bold" : "text-neutral-400 hover:bg-neutral-700 hover:text-white")
-                    }
-                    onClick={() => goToTicker(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Analysis Date */}
           <div>
             <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Analysis Date</label>
@@ -333,6 +289,39 @@ export default function TickerPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-4">
+
+          {/* TOP SEARCH BAR */}
+          <div className="mb-6 relative z-40">
+             <div className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 shadow-sm focus-within:border-blue-500/50 transition-colors">
+                <Icon icon="ph:magnifying-glass-duotone" className="text-neutral-500 mr-3" width="22" height="22" />
+                <input
+                  type="text"
+                  className="w-full bg-transparent border-none outline-none text-sm text-neutral-200 placeholder-neutral-600 font-mono uppercase tracking-wider"
+                  placeholder="Cari Ticker Saham (Contoh: BBCA)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+             </div>
+             
+             {/* Dropdown Pencarian */}
+             {searchTerm && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
+                  {filteredTickers.map((t: string) => (
+                    <button
+                      key={t}
+                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-mono text-neutral-300 hover:bg-neutral-800 hover:text-blue-400 transition-colors border-b border-neutral-800/50 last:border-0"
+                      onClick={() => { goToTicker(t); setSearchTerm(""); }}
+                    >
+                      <span>{t}</span>
+                      <Icon icon="ph:arrow-up-right-bold" className="text-neutral-600" width="14" />
+                    </button>
+                  ))}
+                  {filteredTickers.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-neutral-500 font-mono">Saham tidak ditemukan</div>
+                  )}
+                </div>
+             )}
+          </div>
           
           {/* Header & Chips Unified */}
           <div className="mb-5 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
@@ -402,7 +391,7 @@ export default function TickerPage() {
           <div className="pb-8">
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
-            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
+            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
             {activeTab === "Validation" && (
               <ValidationTab
                 ticker={ticker}
@@ -558,7 +547,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
                 <Tooltip
                   contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
                   labelStyle={{ color: "#94a3b8" }}
-                  formatter={(value: any, name: any) => [fmtRp(Number(value)), name]}
+                  formatter={(value: any, name: string) => [fmtRp(Number(value)), name]}
                 />
                 <Bar
                   yAxisId="left"
