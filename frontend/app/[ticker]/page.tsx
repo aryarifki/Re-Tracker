@@ -101,14 +101,15 @@ export default function TickerPage() {
 
   /* Fetch universe tickers */
   const { data: universeData } = useSWR("/api/bandar/universe/" + universe, fetcher);
-  const { data: allUniverseData } = useSWR("/api/bandar/universe/all", fetcher);
+  const { data: allUniverseData, isLoading: isLoadingUniverse } = useSWR("/api/bandar/universe/all", fetcher);
   
   const tickers = universeData?.tickers || [];
   const allTickers = allUniverseData?.tickers || [];
 
   const filteredTickers = useMemo(() => {
-    const term = searchTerm.toUpperCase();
-    return term ? allTickers.filter((t: string) => t.includes(term)).slice(0, 10) : tickers.slice(0, 10);
+    const term = searchTerm.trim().toUpperCase();
+    if (!term) return tickers.slice(0, 10);
+    return allTickers.filter((t: string) => t.includes(term)).slice(0, 10);
   }, [tickers, allTickers, searchTerm]);
 
   /* Fetch dates for selected ticker */
@@ -305,24 +306,27 @@ export default function TickerPage() {
              
              {/* Dropdown Pencarian */}
              {searchTerm && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl">
-                  {filteredTickers.map((t: string) => (
-                    <button
-                      key={t}
-                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-mono text-neutral-300 hover:bg-neutral-800 hover:text-blue-400 transition-colors border-b border-neutral-800/50 last:border-0"
-                      onClick={() => { goToTicker(t); setSearchTerm(""); }}
-                    >
-                      <span>{t}</span>
-                      <Icon icon="ph:arrow-up-right-bold" className="text-neutral-600" width="14" />
-                    </button>
-                  ))}
-                  {filteredTickers.length === 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl z-50">
+                  {isLoadingUniverse && allTickers.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-neutral-500 font-mono">Memuat daftar saham bursa...</div>
+                  ) : filteredTickers.length > 0 ? (
+                    filteredTickers.map((t: string) => (
+                      <button
+                        key={t}
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm font-mono text-neutral-300 hover:bg-neutral-800 hover:text-blue-400 transition-colors border-b border-neutral-800/50 last:border-0"
+                        onClick={() => { goToTicker(t); setSearchTerm(""); }}
+                      >
+                        <span>{t}</span>
+                        <Icon icon="ph:arrow-up-right-bold" className="text-neutral-600" width="14" />
+                      </button>
+                    ))
+                  ) : (
                     <div className="px-4 py-3 text-sm text-neutral-500 font-mono">Saham tidak ditemukan</div>
                   )}
                 </div>
              )}
           </div>
-          
+       
           {/* Header & Chips Unified */}
           <div className="mb-5 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
             <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">IDX Broker Flow Research</div>
