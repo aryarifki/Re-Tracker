@@ -14,7 +14,9 @@ except ModuleNotFoundError:
     def load_dotenv(*_args, **_kwargs) -> bool:
         return False
 
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
 _ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(_BACKEND_DIR / ".env")
 load_dotenv(_ROOT / ".env")
 
 # ── paths ─────────────────────────────────────────────────────────────────
