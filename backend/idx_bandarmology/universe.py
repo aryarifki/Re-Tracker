@@ -132,55 +132,27 @@ _EXTENDED_LIQUID = sorted(set(_IDX80 + _LQ45 + _IDX30 + config.WATCHLIST + [
 
 
 def _fetch_bei_stock_summary(limit: int = 9999, retries: int = 3) -> list[dict[str, Any]]:
-    """
-    Fetch daftar saham aktif dari BEI menggunakan metode session cookie.
-    Mengemulasi logika getCompanyProfiles dari IDX-API untuk mencegah pemblokiran.
-    """
-    session = requests.Session()
-    session.headers.update({
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
-        'Referer': 'https://www.idx.co.id/',
-        'X-Requested-With': 'XMLHttpRequest',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36'
-    })
-
-    for attempt in range(retries):
-        try:
-            # 1. ensureSession: By-pass proteksi IDX
-            session.get("https://www.idx.co.id/id", timeout=15.0)
-            session.get("https://www.idx.co.id/primary/home/GetIndexList", timeout=15.0)
-            
-            # 2. Tarik daftar emiten
-            url = f"https://www.idx.co.id/primary/ListedCompany/GetCompanyProfiles?start=0&length={limit}"
-            resp = session.get(url, timeout=30.0)
-            resp.raise_for_status()
-            data = resp.json()
-            
-            rows = data.get("data", [])
-            out = []
-            
-            # Mapping JSON berdasarkan struktur getCompanyProfiles
-            for row in rows:
-                code = row.get("KodeEmiten")
-                name = row.get("NamaEmiten")
-                if code:
-                    out.append({
-                        "ticker": code.upper().strip(),
-                        "name": (name or "").strip(),
-                        "board": "",  # Endpoint ini tidak menyediakan data papan, dibiarkan kosong
-                        "sector": "", # Endpoint ini tidak menyediakan data sektor, dibiarkan kosong
-                    })
-            if out:
-                return out
-                
-        except Exception as exc:
-            print(f"[universe] BEI fetch attempt {attempt + 1}/{retries} failed: {exc}")
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-                
-    return []
-
+    """Fetch daftar saham aktif dari BEI via IDXClient wrapper."""
+    try:
+        from .idx_api_wrapper import IDXClient
+        client = IDXClient()
+        profiles = client.company.getCompanyProfiles(0, limit)
+        out = []
+        for row in profiles:
+            code = row.get("KodeEmiten")
+            name = row.get("NamaEmiten")
+            if code:
+                out.append({
+                    "ticker": code.upper().strip(),
+                    "name": (name or "").strip(),
+                    "board": row.get("PapanPencatatan", "") or "",
+                    "sector": row.get("Sektor", "") or "",
+                })
+        print(f"[universe] Berhasil menarik {len(out)} emiten dari IDX via IDXClient.")
+        return out
+    except Exception as exc:
+        print(f"[universe] Gagal menarik emiten via IDXClient: {exc}")
+        return []
 
 def _fetch_bei_constituent(index_code: str = "IHSG", retries: int = 3) -> list[str]:
     """Fetch index constituents from BEI."""
