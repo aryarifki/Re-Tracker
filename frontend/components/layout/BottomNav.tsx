@@ -7,46 +7,54 @@ import { Icon } from "@iconify/react";
 export default function BottomNav() {
   const pathname = usePathname();
 
-  // Logika rute aktif yang baru
-  const isDashboard = pathname === "/" || (!pathname.includes("/foreign") && !pathname.includes("/konglo") && !pathname.includes("/signal") && !pathname.includes("/settings"));
+  const isHome = pathname === "/";
+  const isDashboard = !isHome && !pathname.includes("/foreign") && !pathname.includes("/konglo") && !pathname.includes("/signal") && !pathname.includes("/logs");
   const isForeign = pathname.includes("/foreign");
   const isKonglo = pathname.includes("/konglo");
   const isSignal = pathname.includes("/signal");
-  const isSettings = pathname.includes("/settings");
+  const isLogs = pathname.includes("/logs");
 
   const getTheme = (active: boolean) => 
-    active ? "text-orange-400" : "text-neutral-500 hover:text-neutral-300 transition-colors";
-  
-  const getIcon = (active: boolean, iconActive: string, iconInactive: string) =>
-    active ? iconActive : iconInactive;
+    active ? "text-orange-400 font-semibold" : "text-neutral-500 hover:text-neutral-300 transition-colors";
 
   return (
     <nav className="fixed bottom-0 left-0 w-full bg-[#0F1117]/95 backdrop-blur-md border-t border-white/[0.05] z-50">
-      <div className="flex justify-around items-center h-16 max-w-xl mx-auto px-2 pb-1">
+      <div className="flex justify-around items-center h-16 max-w-xl mx-auto px-1 pb-1">
          
-         <Link href="/" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isDashboard)}`}>
-            <Icon icon={getIcon(isDashboard, "ph:squares-four-fill", "ph:squares-four-duotone")} width="22" />
-            <span className="text-[9px] mt-1 font-semibold">Dashboard</span>
+         {/* Home */}
+         <Link href="/" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isHome)}`}>
+            <Icon icon={isHome ? "ph:house-fill" : "ph:house-duotone"} width="20" />
+            <span className="text-[9px] mt-1">Home</span>
+         </Link>
+
+         {/* Dashboard (Analisis Ticker Default BBCA) */}
+         <Link href="/BBCA" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isDashboard)}`}>
+            <Icon icon={isDashboard ? "ph:chart-line-up-fill" : "ph:chart-line-up-duotone"} width="20" />
+            <span className="text-[9px] mt-1">Dashboard</span>
          </Link>
          
+         {/* Foreign */}
          <Link href="/foreign" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isForeign)}`}>
-            <Icon icon={getIcon(isForeign, "ph:globe-stand-fill", "ph:globe-stand-duotone")} width="22" />
-            <span className="text-[9px] mt-1 font-semibold">Foreign</span>
+            <Icon icon={isForeign ? "ph:globe-stand-fill" : "ph:globe-stand-duotone"} width="20" />
+            <span className="text-[9px] mt-1">Foreign</span>
          </Link>
          
+         {/* Konglo */}
          <Link href="/konglo" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isKonglo)}`}>
-            <Icon icon={getIcon(isKonglo, "ph:buildings-fill", "ph:buildings-duotone")} width="22" />
-            <span className="text-[9px] mt-1 font-semibold">Konglo</span>
+            <Icon icon={isKonglo ? "ph:buildings-fill" : "ph:buildings-duotone"} width="20" />
+            <span className="text-[9px] mt-1">Konglo</span>
          </Link>
          
+         {/* Signal */}
          <Link href="/signal" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isSignal)}`}>
-            <Icon icon={getIcon(isSignal, "ph:lightning-fill", "ph:lightning-duotone")} width="22" />
-            <span className="text-[9px] mt-1 font-semibold">Signal</span>
+            <Icon icon={isSignal ? "ph:lightning-fill" : "ph:lightning-duotone"} width="20" />
+            <span className="text-[9px] mt-1">Signal</span>
          </Link>
          
-         <Link href="/settings" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isSettings)}`}>
-            <Icon icon={getIcon(isSettings, "ph:gear-fill", "ph:gear-duotone")} width="22" />
-            <span className="text-[9px] mt-1 font-semibold">Setting</span>
+         {/* Logs Terminal */}
+         <Link href="/logs" className={`flex flex-col items-center justify-center w-full h-full ${getTheme(isLogs)}`}>
+            <Icon icon={isLogs ? "ph:terminal-window-fill" : "ph:terminal-window-duotone"} width="20" />
+            <span className="text-[9px] mt-1">Logs</span>
          </Link>
          
       </div>
