@@ -25,6 +25,7 @@ import RawTablesTab from "@/components/analysis/RawTablesTab";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+/* ==================== FORMATTERS ==================== */
 function fmtRp(n: number | null): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
   const sign = n < 0 ? "-" : "";
@@ -53,6 +54,17 @@ function signalColor(score: number | null): string {
   return "#f43f5e";
 }
 
+function getProfileColors(profileId: string) {
+  switch (profileId) {
+    case "smart_foreign": return { solid: "#10b981", faded: "rgba(16, 185, 129, 0.3)" }; // Hijau
+    case "local_institutional": return { solid: "#3b82f6", faded: "rgba(59, 130, 246, 0.3)" }; // Biru
+    case "market_maker": return { solid: "#a855f7", faded: "rgba(168, 85, 247, 0.3)" }; // Ungu
+    case "bandar_gorengan": return { solid: "#f59e0b", faded: "rgba(245, 158, 11, 0.3)" }; // Oranye
+    case "retail": 
+    default: return { solid: "#94a3b8", faded: "rgba(148, 163, 184, 0.3)" }; // Abu-abu
+  }
+}
+
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
 const UNIVERSES = [
   "watchlist", "idx80", "lq45", "idx_high_dividend", "idx_bumn", 
@@ -63,6 +75,7 @@ const UNIVERSES = [
 const WINDOWS = [20, 30, 60, 90, 180];
 const HORIZONS = [1, 3, 5, 10];
 
+/* ==================== MAIN PAGE COMPONENT ==================== */
 export default function TickerPage() {
   const params = useParams();
   const router = useRouter();
@@ -81,6 +94,15 @@ export default function TickerPage() {
   const [minEvents, setMinEvents] = useState(5);
   const [minNetBuy, setMinNetBuy] = useState(0);
 
+  /* Watchlist Sync */
+  const [localWatchlist, setLocalWatchlist] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const ls = localStorage.getItem("tradepulse_watchlist");
+      if (ls) setLocalWatchlist(JSON.parse(ls));
+    } catch (e) {}
+  }, []);
+
   /* Backfill manual range state */
   const [backfillStart, setBackfillStart] = useState("");
   const [backfillEnd, setBackfillEnd] = useState("");
@@ -93,18 +115,21 @@ export default function TickerPage() {
   const { data: statusData, mutate: mutateStatus } = useSWR("/api/bandar/system-status", fetcher);
   const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
 
-  const tickers = universeData?.tickers || [];
+  /* Dynamically use LocalStorage watchlist if universe === "watchlist" */
+  const tickers = universe === "watchlist" && localWatchlist.length > 0
+    ? localWatchlist
+    : (universeData?.tickers || []);
+    
   const allTickers = allUniverseData?.tickers || [];
   const availableDates: string[] = datesData?.dates || [];
 
-  /* Inisialisasi tanggal backfill & analysisDate default */
+  /* Initialize analysisDate & backfill date */
   useEffect(() => {
     if (availableDates.length > 0 && !analysisDate) {
       const latest = availableDates[availableDates.length - 1];
       setAnalysisDate(latest);
       setBackfillEnd(latest);
       
-      // Default start backfill: 90 hari sebelum tanggal terakhir
       const d = new Date(latest);
       d.setDate(d.getDate() - 90);
       setBackfillStart(d.toISOString().split("T")[0]);
@@ -132,14 +157,12 @@ export default function TickerPage() {
     }
   };
 
-  /* Helper pemilihan tanggal kalender dengan auto-snap ke hari bursa terdekat */
   const handleCalendarChange = (selected: string) => {
     if (!selected || availableDates.length === 0) return;
     if (availableDates.includes(selected)) {
       setAnalysisDate(selected);
       return;
     }
-    // Cari tanggal bursa sebelumnya yang tersedia
     const priorDates = availableDates.filter((d) => d <= selected);
     if (priorDates.length > 0) {
       setAnalysisDate(priorDates[priorDates.length - 1]);
@@ -148,7 +171,6 @@ export default function TickerPage() {
     }
   };
 
-  /* Action 1: Refresh Master Tickers dari IDX */
   const handleRefreshMaster = async () => {
     if (isRefreshingMaster) return;
     setIsRefreshingMaster(true);
@@ -169,30 +191,37 @@ export default function TickerPage() {
     }
   };
 
-  /* Action 2: Pipeline Handlers */
   const runPipeline = async (type: "today" | "missing" | "backfill") => {
     setPipelineRunning(type);
     try {
+      const payload: any = { universe_mode: universe };
+      // Kalau pakai custom local watchlist, timpa dengan array eksplisit
+      if (universe === "watchlist" && localWatchlist.length > 0) {
+          payload.tickers = localWatchlist;
+      }
+
       let res;
       if (type === "today") {
         res = await fetch("/api/bandar/pipeline/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ universe_mode: universe }),
+          body: JSON.stringify(payload),
         });
       } else if (type === "missing") {
-        const startDate = analysisDate || statusData?.latest_date;
-        const endDate = new Date().toISOString().split("T")[0];
+        payload.start_date = analysisDate || statusData?.latest_date;
+        payload.end_date = new Date().toISOString().split("T")[0];
         res = await fetch("/api/bandar/pipeline/backfill", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ universe_mode: universe, start_date: startDate, end_date: endDate }),
+          body: JSON.stringify(payload),
         });
       } else {
+        payload.start_date = backfillStart;
+        payload.end_date = backfillEnd;
         res = await fetch("/api/bandar/pipeline/backfill", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ universe_mode: universe, start_date: backfillStart, end_date: backfillEnd }),
+          body: JSON.stringify(payload),
         });
       }
       const json = await res.json();
@@ -400,7 +429,7 @@ export default function TickerPage() {
 
         <div className="max-w-7xl mx-auto px-4 py-4">
 
-          {/* SEARCH BAR (Compact + Amber Glow Effect) */}
+          {/* SEARCH BAR */}
           <div className="mb-5 relative z-40">
              <div className="flex items-center bg-gradient-to-b from-neutral-900 to-neutral-950 border border-amber-500/30 hover:border-amber-500/60 focus-within:border-amber-500 rounded-xl px-3.5 py-2.5 shadow-[0_0_12px_rgba(245,158,11,0.08)] focus-within:shadow-[0_0_20px_rgba(245,158,11,0.22)] transition-all">
                 <Icon icon="ph:magnifying-glass-duotone" className="text-amber-500/70 mr-2.5" width="18" height="18" />
@@ -573,7 +602,6 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
                 />
                 <Bar yAxisId="right" dataKey="volume" fill="#334155" opacity={0.3} />
                 <Line yAxisId="left" type="monotone" dataKey="close" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                {/* Garis hijau putus-putus (ReferenceLine) telah dihapus dari sini */}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -633,7 +661,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         </div>
       </div>
 
-      {/* 2. FITUR YANG DIKEMBALIKAN: Smart Flow + Profile Net Flow */}
+      {/* 2. Smart Flow + Profile Net Flow */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
           <h3 className="text-sm font-bold text-neutral-200 mb-3">Smart-Money Daily Flow</h3>
@@ -675,14 +703,16 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               {(data.profile_flow || []).map((row: any, i: number) => {
                 const maxAbs = Math.max(...(data.profile_flow || []).map((r: any) => Math.abs(r.net)), 1);
                 const width = Math.max(3, (Math.abs(row.net) / maxAbs) * 100);
+                const profileColors = getProfileColors(row.profile);
+                
                 return (
                   <div key={i}>
                     <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="text-neutral-200 font-semibold">{row.label}</span>
+                      <span className="font-semibold" style={{ color: profileColors.solid }}>{row.label}</span>
                       <span className="font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
                     </div>
-                    <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
+                    <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: profileColors.faded }} />
                     </div>
                   </div>
                 );
@@ -692,7 +722,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         </div>
       </div>
       
-      {/* 3. FITUR YANG DIKEMBALIKAN: Broker Detail by Profile */}
+      {/* 3. Broker Detail by Profile */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
         <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
         {(data.profile_broker_detail || []).length === 0 ? (
