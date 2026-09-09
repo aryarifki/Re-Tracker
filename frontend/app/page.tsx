@@ -113,7 +113,7 @@ export default function HomeMobile() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#08090C] text-neutral-200 selection:bg-blue-500/30">
+    <div className="min-h-[100dvh] bg-[#08090C] text-neutral-200 selection:bg-amber-500/30">
       <main className="max-w-xl mx-auto p-4 md:p-6 space-y-6 pb-6">
         
         <header className="flex items-center justify-between border-b border-white/[0.07] pb-3">
@@ -131,9 +131,9 @@ export default function HomeMobile() {
         </header>
 
         <section className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-4 relative overflow-hidden shadow-sm">
-           <div className="absolute top-0 left-0 w-full h-[2px] bg-blue-500 opacity-80"></div>
+           <div className="absolute top-0 left-0 w-full h-[2px] bg-amber-500 opacity-80"></div>
            <div className="flex items-center gap-2 mb-3">
-               <Icon icon="ph:info-duotone" className="text-blue-400" width="18" />
+               <Icon icon="ph:info-duotone" className="text-amber-500" width="18" />
                <h2 className="text-sm font-semibold text-neutral-100">Quant Flow Architecture</h2>
            </div>
            <p className="text-[11px] text-neutral-400 leading-relaxed mb-4 text-justify">
@@ -168,7 +168,7 @@ export default function HomeMobile() {
               onClick={() => setEditing(!editing)}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors active:scale-[0.98] ${
                 editing
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
                   : "bg-[#0F1117] text-neutral-400 border-white/[0.07] hover:border-white/[0.15] hover:text-neutral-200"
               }`}
             >
@@ -178,14 +178,14 @@ export default function HomeMobile() {
           </div>
 
           {editing && (
-            <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-4 space-y-3 shadow-md">
+            <div className="bg-[#0F1117] border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-[0_0_15px_rgba(245,158,11,0.08)]">
               <div className="relative">
-                  <Icon icon="ph:magnifying-glass" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" width="16" />
+                  <Icon icon="ph:magnifying-glass" className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500/70" width="16" />
                   <input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search ticker (e.g. BBCA)..."
-                      className="w-full bg-[#08090C] border border-white/[0.07] rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-100 outline-none focus:border-orange-400/50 uppercase font-mono placeholder:normal-case placeholder:font-sans"
+                      className="w-full bg-[#08090C] border border-white/[0.07] rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-100 outline-none focus:border-amber-500/50 uppercase font-mono placeholder:normal-case placeholder:font-sans"
                   />
               </div>
               
@@ -199,8 +199,8 @@ export default function HomeMobile() {
                           onClick={() => addTicker(t)}
                           className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border font-bold font-mono transition-all active:scale-[0.98] ${
                           added
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 opacity-60 cursor-default"
-                              : "bg-[#08090C] text-neutral-300 border-white/[0.07] hover:border-orange-400/50 hover:text-orange-400"
+                              ? "bg-amber-500/10 text-amber-500 border-amber-500/20 opacity-60 cursor-default"
+                              : "bg-[#08090C] text-neutral-300 border-white/[0.07] hover:border-amber-500/50 hover:text-amber-500"
                           }`}
                       >
                           <Icon icon={added ? "ph:check-bold" : "ph:plus-bold"} width="12" />
