@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import { Icon } from "@iconify/react";
@@ -14,7 +14,6 @@ import {
   ResponsiveContainer,
   Bar,
   ComposedChart,
-  ReferenceLine,
 } from "recharts";
 
 import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
@@ -86,7 +85,7 @@ export default function TickerPage() {
 
   /* Sidebar Controls */
   const [universe, setUniverse] = useState("watchlist");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [universeOpen, setUniverseOpen] = useState(false); // <--- State dropdown khusus
   const [analysisDate, setAnalysisDate] = useState("");
   const [windowDays, setWindowDays] = useState(20);
   const [horizon, setHorizon] = useState(10);
@@ -109,17 +108,9 @@ export default function TickerPage() {
   const [isRefreshingMaster, setIsRefreshingMaster] = useState(false);
 
   /* SWR Data Fetching */
-  const { data: universeData } = useSWR("/api/bandar/universe/" + universe, fetcher);
-  const { data: allUniverseData, isLoading: isLoadingUniverse } = useSWR("/api/bandar/universe/all", fetcher);
   const { data: statusData, mutate: mutateStatus } = useSWR("/api/bandar/system-status", fetcher);
   const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
 
-  /* Dynamically use LocalStorage watchlist if universe === "watchlist" */
-  const tickers = universe === "watchlist" && localWatchlist.length > 0
-    ? localWatchlist
-    : (universeData?.tickers || []);
-    
-  const allTickers = allUniverseData?.tickers || [];
   const availableDates: string[] = datesData?.dates || [];
 
   /* Initialize analysisDate & backfill date */
@@ -135,12 +126,6 @@ export default function TickerPage() {
     }
   }, [availableDates, analysisDate]);
 
-  const filteredTickers = useMemo(() => {
-    const term = searchTerm.trim().toUpperCase();
-    if (!term) return tickers.slice(0, 10);
-    return allTickers.filter((t: string) => t.includes(term)).slice(0, 10);
-  }, [tickers, allTickers, searchTerm]);
-
   /* Detail Data Fetch */
   const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "");
   const { data, error, isLoading } = useSWR(
@@ -148,13 +133,6 @@ export default function TickerPage() {
     fetcher,
     { refreshInterval: 60000 }
   );
-
-  const goToTicker = (t: string) => {
-    if (t && t !== ticker) {
-      router.push("/" + t);
-      setSidebarOpen(false);
-    }
-  };
 
   const handleCalendarChange = (selected: string) => {
     if (!selected || availableDates.length === 0) return;
@@ -272,15 +250,40 @@ export default function TickerPage() {
           {/* Universe & Live DB Stats */}
           <div>
             <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Universe Filter</label>
-            <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none focus:border-orange-500/50"
-              value={universe}
-              onChange={(e) => setUniverse(e.target.value)}
-            >
-              {UNIVERSES.map((u) => (
-                <option key={u} value={u}>{u.toUpperCase()}</option>
-              ))}
-            </select>
+            
+            {/* Custom Universe Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setUniverseOpen(!universeOpen)}
+                className="w-full flex items-center justify-between bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none hover:border-orange-500/50 transition-colors"
+              >
+                <span>{universe.toUpperCase()}</span>
+                <Icon icon={universeOpen ? "ph:caret-up-bold" : "ph:caret-down-bold"} className="text-neutral-500" />
+              </button>
+              
+              {universeOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setUniverseOpen(false)}></div>
+                  <div className="absolute top-full left-0 w-full mt-1.5 bg-[#08090C] border border-neutral-700 rounded-lg shadow-2xl z-50 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700">
+                    {UNIVERSES.map((u) => (
+                      <button
+                        key={u}
+                        onClick={() => {
+                          setUniverse(u);
+                          setUniverseOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 text-[11px] font-semibold tracking-wider border-b border-white/[0.04] last:border-0 transition-colors ${
+                          universe === u ? "text-orange-400 bg-orange-500/10" : "text-neutral-300 hover:bg-neutral-800"
+                        }`}
+                      >
+                        {u.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="text-[10px] text-neutral-400 mt-1.5 flex flex-col gap-0.5 bg-neutral-950/40 p-2 rounded border border-neutral-800/80">
               <span className="flex items-center gap-1.5 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -428,42 +431,7 @@ export default function TickerPage() {
 
         <div className="max-w-7xl mx-auto px-4 py-4">
 
-          {/* SEARCH BAR */}
-          <div className="mb-5 relative z-40">
-             <div className="flex items-center bg-gradient-to-b from-neutral-900 to-neutral-950 border border-amber-500/30 hover:border-amber-500/60 focus-within:border-amber-500 rounded-xl px-3.5 py-2.5 shadow-[0_0_12px_rgba(245,158,11,0.08)] focus-within:shadow-[0_0_20px_rgba(245,158,11,0.22)] transition-all">
-                <Icon icon="ph:magnifying-glass-duotone" className="text-amber-500/70 mr-2.5" width="18" height="18" />
-                <input
-                  type="text"
-                  className="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-neutral-200 placeholder-neutral-500 font-mono uppercase tracking-wider"
-                  placeholder="Cari Ticker Saham (Contoh: BBCA)..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-             </div>
-             
-             {searchTerm && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-xl overflow-hidden shadow-2xl z-50">
-                  {isLoadingUniverse && allTickers.length === 0 ? (
-                    <div className="px-4 py-3 text-xs text-neutral-500 font-mono">Memuat daftar saham bursa...</div>
-                  ) : filteredTickers.length > 0 ? (
-                    filteredTickers.map((t: string) => (
-                      <button
-                        key={t}
-                        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-mono text-neutral-300 hover:bg-neutral-800 hover:text-orange-400 transition-colors border-b border-neutral-800/40 last:border-0"
-                        onClick={() => { goToTicker(t); setSearchTerm(""); }}
-                      >
-                        <span>{t}</span>
-                        <Icon icon="ph:arrow-up-right-bold" className="text-neutral-600" width="12" />
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-xs text-neutral-500 font-mono">Saham tidak ditemukan</div>
-                  )}
-                </div>
-             )}
-          </div>
-       
-          {/* Header */}
+          {/* Header Dashboard */}
           <div className="mb-4 bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
             <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
             <h1 className="text-lg sm:text-xl font-bold text-white mb-2">Smart Money Dashboard</h1>
@@ -528,7 +496,7 @@ export default function TickerPage() {
           <div>
             {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
             {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
-            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} detailData={data} />}
+            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
             {activeTab === "Validation" && (
               <ValidationTab
                 ticker={ticker}
