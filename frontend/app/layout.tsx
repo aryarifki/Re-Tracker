@@ -4,6 +4,7 @@ import Image from "next/image";
 import "./globals.css";
 import BottomNav from "@/components/layout/BottomNav";
 import RefreshButton from "@/components/layout/RefreshButton";
+import GlobalSearch from "@/components/layout/GlobalSearch";
 
 const inter = Inter({ subsets: ["latin"] });
 
