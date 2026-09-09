@@ -14,6 +14,8 @@ import {
   ReferenceLine,
 } from "recharts";
 
+import { getProfileTextColor } from "@/app/[ticker]/page"; // <-- 1. Import helper warna profil
+
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 /* ==================== Formatters ==================== */
@@ -61,7 +63,6 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
              "&dist_end=" + distEnd + 
              (selectedCodes.length > 0 ? "&broker_codes=" + selectedCodes.join(",") : "");
              
-  // FIX: Tambahkan keepPreviousData: true dan ambil state isValidating
   const { data, error, isLoading, isValidating } = useSWR(
     ticker ? "/api/bandar/broker-flow/" + ticker + qs : null,
     fetcher,
@@ -100,7 +101,6 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     }
   };
 
-  // FIX: Hanya render loading besar di awal (ketika data benar-benar kosong)
   if (isLoading && !data) return <div className="p-8 border border-white/[0.07] bg-[#0F1117] rounded-xl flex items-center justify-center gap-3 text-neutral-400"><Icon icon="ph:spinner-gap-duotone" className="animate-spin" width="20" /> <span className="text-sm font-medium">Extracting broker flow data...</span></div>;
   if (error) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl">Error processing data.</div>;
 
@@ -191,14 +191,16 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
                 <div key={i} className="bg-[#08090C] border border-white/[0.05] rounded-lg p-4 flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-3">
                         <div>
-                            <div className="text-sm font-bold text-neutral-200">{row.label}</div>
+                            {/* --- 2. Terapkan Helper Warna Profil --- */}
+                            <div className="text-sm font-bold" style={{ color: getProfileTextColor(row.label) }}>{row.label}</div>
                             <div className="text-[10px] text-neutral-500 mt-0.5">{row.description}</div>
                         </div>
                         <span className="font-mono font-bold text-sm" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
                     </div>
                     <div>
                         <div className="h-1.5 bg-[#0F1117] rounded-full overflow-hidden border border-white/[0.02] mb-3">
-                        <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
+                          {/* --- 3. Pastikan batang Grafik memakai Signed Color (Hijau/Merah) --- */}
+                          <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                         {(row.top_brokers || []).map((b: any, j: number) => (
@@ -241,7 +243,8 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
                     <tbody className="divide-y divide-white/[0.02]">
                     {filteredProfileDetail.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="py-2.5 px-3 text-neutral-300">{row.profile}</td>
+                        {/* --- 4. Terapkan Warna Profil di Kolom Teks Ini --- */}
+                        <td className="py-2.5 px-3 font-semibold" style={{ color: getProfileTextColor(row.profile) }}>{row.profile}</td>
                         <td className="py-2.5 px-3 text-neutral-200 font-mono">{row.broker}</td>
                         <td className="py-2.5 px-3 uppercase text-neutral-400">{row.type}</td>
                         <td className="py-2.5 px-3 text-right font-mono text-neutral-300">{fmtRp(row.buy)}</td>
