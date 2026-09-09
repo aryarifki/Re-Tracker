@@ -26,14 +26,15 @@ export default function RootLayout({
             <div className="relative w-5 h-5">
               <Image src="/logo.png" alt="InvestOwl" fill sizes="20px" className="object-contain" priority />
             </div>
-            <span className="text-sm font-bold tracking-[0.15em] uppercase text-orange-400">InvestOwl</span>
+            <span className="text-sm font-bold tracking-[0.15em] uppercase text-orange-400 hidden sm:block">InvestOwl</span>
           </div>
-          <div className="flex items-center gap-3">
-             <span className="text-[10px] font-medium text-neutral-500 hidden sm:block">Dashboard Bandarmologi IDX</span>
+          
+          <div className="flex items-center gap-2.5">
+             <GlobalSearch />
              <RefreshButton />
           </div>
         </nav>
-        
+       
         {/* Konten Halaman */}
         <div className="pb-16">
             {children}
