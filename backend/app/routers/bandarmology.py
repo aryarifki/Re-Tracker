@@ -1502,19 +1502,28 @@ _SCREENER_CACHE = {}
 def smart_screener(
     universe_mode: str = "lq45",
     analysis_date: str = None,
-    window_days: int = 20
+    window_days: int = 20,
+    tickers: str = None  # <--- Parameter baru untuk menerima string "BBNI,BBCA,AADI" dari frontend
 ):
     import time as _time
     import pandas as pd
     from idx_bandarmology import analysis, storage
-    
-    cache_key = f"screener|{universe_mode}|{analysis_date}|{window_days}"
+
+    # --- PERBARUI CACHE KEY: Tambahkan {tickers} agar cache tidak tertukar ---
+    cache_key = f"screener|{universe_mode}|{analysis_date}|{window_days}|{tickers}"
     now = _time.time()
-    
-    if cache_key in _SCREENER_CACHE and (now - _SCREENER_CACHE[cache_key]["ts"]) < 1800:
-        return _SCREENER_CACHE[cache_key]["data"]
-        
-    tickers = get_dynamic_universe(universe_mode)
+
+    if cache_key in _SCREENER_CACHE and (now - _SCREENER_CACHE[cache_key]['ts'] < 300):
+        return _SCREENER_CACHE[cache_key]['data']
+
+    # --- LOGIKA PENYARINGAN CERDAS ---
+    if tickers:
+        # Jika ada kiriman "BBNI,BBCA" dari frontend, pecah jadi list dan timpa variabel tickers
+        tickers = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    else:
+        # Jika kosong (mode normal), gunakan bawaan database
+        tickers = get_dynamic_universe(universe_mode)
+
     if not tickers:
         return {"data": [], "meta": {}}
         
