@@ -10,13 +10,18 @@ interface ScreenerProps {
   universeMode: string;
   analysisDate: string;
   windowDays: number;
+  customTickers?: string[]; // <--- Properti baru untuk menerima data localStorage
 }
 
-export default function ScreenerTab({ universeMode, analysisDate, windowDays }: ScreenerProps) {
+export default function ScreenerTab({ universeMode, analysisDate, windowDays, customTickers }: ScreenerProps) {
   const [minLiq, setMinLiq] = useState<number>(0); 
   const [showOnlyAcc, setShowOnlyAcc] = useState<boolean>(false);
 
-  const url = `/api/bandar/screener-v2?universe_mode=${universeMode}&analysis_date=${analysisDate}&window_days=${windowDays}`;
+  // Jika universe watchlist dan ada custom ticker, tembak spesifik. Jika tidak, gunakan mode biasa.
+  let url = `/api/bandar/screener-v2?universe_mode=${universeMode}&analysis_date=${analysisDate}&window_days=${windowDays}`;
+  if (customTickers && customTickers.length > 0) {
+    url += `&tickers=${customTickers.join(",")}`;
+  }
   
   const { data, error, isLoading, isValidating, mutate } = useSWR(url, fetcher, { 
     refreshInterval: 0, 
