@@ -556,6 +556,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
 
   return (
     <div className="space-y-4">
+      {/* 1. Price Chart + Top Brokers */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
           <h3 className="text-xs sm:text-sm font-bold text-neutral-200 mb-3">Price, Volume, and Signal Context</h3>
@@ -572,11 +573,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
                 />
                 <Bar yAxisId="right" dataKey="volume" fill="#334155" opacity={0.3} />
                 <Line yAxisId="left" type="monotone" dataKey="close" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                {chartData
-                  .filter((d: any) => d.signalScore !== null)
-                  .map((d: any, i: number) => (
-                    <ReferenceLine key={i} x={d.date} stroke="#10b981" strokeDasharray="3 3" yAxisId="left" />
-                  ))}
+                {/* Garis hijau putus-putus (ReferenceLine) telah dihapus dari sini */}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -634,6 +631,106 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 2. FITUR YANG DIKEMBALIKAN: Smart Flow + Profile Net Flow */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">Smart-Money Daily Flow</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data.smart_daily || []} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
+                <Tooltip
+                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(value: any, name: string) => [fmtRp(Number(value)), name]}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="smart_net"
+                  fill="#10b981"
+                  shape={(props: any) => {
+                    const { x, y, width, height, payload } = props;
+                    const color = payload.smart_net >= 0 ? "#10b981" : "#f43f5e";
+                    return <rect x={x} y={y} width={width} height={height} fill={color} opacity={0.8} rx={2} />;
+                  }}
+                />
+                <Line yAxisId="right" type="monotone" dataKey="cumulative_net" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <ReferenceLine yAxisId="left" y={0} stroke="#64748b" strokeWidth={1} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <h3 className="text-sm font-bold text-neutral-200 mb-3">Profile Net Flow</h3>
+          {(data.profile_flow || []).length === 0 ? (
+            <p className="text-xs text-neutral-500">No profile flow for this window.</p>
+          ) : (
+            <div className="space-y-3">
+              {(data.profile_flow || []).map((row: any, i: number) => {
+                const maxAbs = Math.max(...(data.profile_flow || []).map((r: any) => Math.abs(r.net)), 1);
+                const width = Math.max(3, (Math.abs(row.net) / maxAbs) * 100);
+                return (
+                  <div key={i}>
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span className="text-neutral-200 font-semibold">{row.label}</span>
+                      <span className="font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
+                    </div>
+                    <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* 3. FITUR YANG DIKEMBALIKAN: Broker Detail by Profile */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
+        {(data.profile_broker_detail || []).length === 0 ? (
+          <p className="text-xs text-neutral-500">No broker detail for this window.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-neutral-500 border-b border-neutral-800">
+                  <th className="text-left py-1.5 pr-2">Profile</th>
+                  <th className="text-left py-1.5 pr-2">Broker</th>
+                  <th className="text-left py-1.5 pr-2">Type</th>
+                  <th className="text-right py-1.5 pr-2">Buy</th>
+                  <th className="text-right py-1.5 pr-2">Sell</th>
+                  <th className="text-right py-1.5 pr-2">Net</th>
+                  <th className="text-right py-1.5 pr-2">Freq</th>
+                  <th className="text-right py-1.5 pr-2">Days</th>
+                  <th className="text-right py-1.5">Avg/Tx</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.profile_broker_detail || []).map((row: any, i: number) => (
+                  <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                    <td className="py-1.5 pr-2 text-neutral-300 font-semibold">{row.profile}</td>
+                    <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
+                    <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.freq?.toLocaleString("id-ID") || 0}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.days || 0}</td>
+                    <td className="py-1.5 text-right font-mono text-neutral-400">{fmtRp(row.avg_value_tx)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
