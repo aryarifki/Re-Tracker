@@ -27,7 +27,7 @@ export default function RootLayout({
             <div className="relative w-5 h-5">
               <Image src="/logo.png" alt="InvestOwl" fill sizes="20px" className="object-contain" priority />
             </div>
-            <span className="text-sm font-bold tracking-[0.15em] uppercase text-orange-400 hidden sm:block">InvestOwl</span>
+            <span className="text-sm font-bold tracking-[0.15em] uppercase text-orange-400">InvestOwl</span>           
           </div>
           
           <div className="flex items-center gap-2.5">
