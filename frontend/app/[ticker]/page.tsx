@@ -54,15 +54,14 @@ function signalColor(score: number | null): string {
   return "#f43f5e";
 }
 
-function getProfileColors(profileId: string) {
-  switch (profileId) {
-    case "smart_foreign": return { solid: "#10b981", faded: "rgba(16, 185, 129, 0.3)" }; // Hijau
-    case "local_institutional": return { solid: "#3b82f6", faded: "rgba(59, 130, 246, 0.3)" }; // Biru
-    case "market_maker": return { solid: "#a855f7", faded: "rgba(168, 85, 247, 0.3)" }; // Ungu
-    case "bandar_gorengan": return { solid: "#f59e0b", faded: "rgba(245, 158, 11, 0.3)" }; // Oranye
-    case "retail": 
-    default: return { solid: "#94a3b8", faded: "rgba(148, 163, 184, 0.3)" }; // Abu-abu
-  }
+// Hanya digunakan untuk memberi warna teks pada nama profil
+export function getProfileTextColor(label: string) {
+  const l = label.toLowerCase();
+  if (l.includes("foreign smart")) return "#10b981"; // 🟢 Emerald
+  if (l.includes("local inst")) return "#3b82f6"; // 🔵 Blue
+  if (l.includes("market maker")) return "#a855f7"; // 🟣 Purple
+  if (l.includes("speculative")) return "#f59e0b"; // 🟠 Amber
+  return "#94a3b8"; // ⚪ Retail / Other
 }
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
@@ -545,6 +544,7 @@ export default function TickerPage() {
                 universeMode={universe}
                 analysisDate={analysisDate}
                 windowDays={windowDays}
+                customTickers={universe === "watchlist" ? localWatchlist : []}
               />
             )}
             {activeTab === "Raw Tables" && (
@@ -703,16 +703,15 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               {(data.profile_flow || []).map((row: any, i: number) => {
                 const maxAbs = Math.max(...(data.profile_flow || []).map((r: any) => Math.abs(r.net)), 1);
                 const width = Math.max(3, (Math.abs(row.net) / maxAbs) * 100);
-                const profileColors = getProfileColors(row.profile);
                 
                 return (
                   <div key={i}>
                     <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="font-semibold" style={{ color: profileColors.solid }}>{row.label}</span>
+                      <span className="font-semibold" style={{ color: getProfileTextColor(row.label) }}>{row.label}</span>
                       <span className="font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
                     </div>
                     <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: profileColors.faded }} />
+                      <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
                     </div>
                   </div>
                 );
@@ -746,7 +745,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               <tbody>
                 {(data.profile_broker_detail || []).map((row: any, i: number) => (
                   <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
-                    <td className="py-1.5 pr-2 text-neutral-300 font-semibold">{row.profile}</td>
+                    <td className="py-1.5 pr-2 font-semibold" style={{ color: getProfileTextColor(row.profile) }}>{row.profile}</td>
                     <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
                     <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
                     <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
