@@ -14,7 +14,6 @@ import {
   ReferenceLine,
 } from "recharts";
 
-import { getProfileTextColor } from "@/app/[ticker]/page"; // <-- 1. Import helper warna profil
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -31,6 +30,15 @@ function fmtRp(n: number | null): string {
 
 function signedColor(n: number): string {
   return n >= 0 ? "#10b981" : "#f43f5e";
+}
+
+function getProfileTextColor(label: string) {
+  const l = label.toLowerCase();
+  if (l.includes("foreign smart")) return "#10b981"; 
+  if (l.includes("local inst")) return "#3b82f6"; 
+  if (l.includes("market maker")) return "#a855f7"; 
+  if (l.includes("speculative")) return "#f59e0b"; 
+  return "#94a3b8"; 
 }
 
 const COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1"];
