@@ -9,13 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-# Injeksi database dari Re-Tracker
 from database import get_db
-
-# Mengimpor modul analitik TDD yang sudah kita buat
 from src.services.foreign_analytics import compute_hmm_regime, compute_var_irf, compute_foreign_hhi
 
-# Inisialisasi koneksi Redis lokal (Graceful fallback jika mati)
 try:
     redis_client = redis.Redis(host='127.0.0.1', port=6379, db=0, decode_responses=True)
     redis_client.ping()
@@ -24,19 +20,15 @@ except Exception:
 
 router = APIRouter(prefix="/api/foreign-flow", tags=["Foreign Flow Deep Dive"])
 
-@router.get(
-    "/{ticker}",
-    summary="Data kalkulasi HMM, VAR, dan HHI untuk Foreign Flow",
-)
+@router.get("/{ticker}")
 def get_foreign_flow_analytics(
     ticker: str,
-    lookback_days: int = Query(60, ge=20, le=250, description="Jumlah hari observasi (default 60)"),
+    lookback_days: int = Query(60, ge=20, le=250),
     db: Session = Depends(get_db)
 ):
     ticker = ticker.upper().strip()
     cache_key = f"ff_deepdive:{ticker}:{lookback_days}"
 
-    # 1. Cek Data di Redis Cache (Response < 50ms)
     if redis_client:
         try:
             cached_data = redis_client.get(cache_key)
@@ -45,11 +37,11 @@ def get_foreign_flow_analytics(
         except Exception:
             pass 
 
-    # 2. Tarik Data Makro (Harga & Net Foreign Flow)
+    # MENGGUNAKAN LEFT JOIN AGAR DATA BROKER TETAP DIAMBIL MESKI DATA HARGA BELUM UPDATE
     query_macro = text("""
         SELECT f.date, f.foreign_net_broker, p.close
         FROM broker_flow f
-        JOIN prices p ON f.ticker = p.ticker AND f.date = p.date
+        LEFT JOIN prices p ON f.ticker = p.ticker AND f.date = p.date
         WHERE f.ticker = :ticker
         ORDER BY f.date DESC
         LIMIT :limit
@@ -58,22 +50,26 @@ def get_foreign_flow_analytics(
     macro_rows = db.execute(query_macro, {"ticker": ticker, "limit": lookback_days}).fetchall()
     
     if not macro_rows or len(macro_rows) < 20:
-        raise HTTPException(status_code=404, detail="Data historis tidak mencukupi untuk analitik (Min 20 hari)")
+        raise HTTPException(status_code=404, detail=f"Data historis {ticker} tidak mencukupi (Min 20 hari)")
 
-    # Balik ke urutan kronologis (terlama ke terbaru) untuk algoritma Time-Series
     macro_rows = list(reversed(macro_rows))
     
     dates = [str(r.date) for r in macro_rows]
     foreign_net = [float(r.foreign_net_broker or 0) for r in macro_rows]
-    closes = [float(r.close or 0) for r in macro_rows]
     
-    # Hitung Return Harian untuk model VAR
+    # Logika Penambal Harga (Forward-fill)
+    closes = []
+    last_close = 0.0
+    for r in macro_rows:
+        if r.close is not None and float(r.close) > 0:
+            last_close = float(r.close)
+        closes.append(last_close)
+    
     returns = [0.0]
     for i in range(1, len(closes)):
         prev = closes[i-1]
-        returns.append((closes[i] - prev) / prev if prev else 0.0)
+        returns.append(float((closes[i] - prev) / prev) if prev else 0.0)
 
-    # 3. Tarik Data Mikrostruktur Broker (Konsentrasi Asing)
     start_date = macro_rows[0].date
     query_micro = text("""
         SELECT broker_code, SUM(net_value) as total_net
@@ -84,17 +80,15 @@ def get_foreign_flow_analytics(
     micro_rows = db.execute(query_micro, {"ticker": ticker, "start_date": start_date}).fetchall()
     broker_net_values = [float(r.total_net) for r in micro_rows]
 
-    # 4. Komputasi Engine Kuantitatif
+    # Eksekusi Analitik
     regime_data = compute_hmm_regime(foreign_net, n_states=3)
     var_irf_data = compute_var_irf(foreign_net, returns, lags=2, horizon=10)
     hhi_score = compute_foreign_hhi(broker_net_values)
     
-    # Hitung kekuatan momentum (Z-Score)
     f_arr = np.array(foreign_net)
-    std_val = np.std(f_arr)
+    std_val = float(np.std(f_arr))
     zscore = float((f_arr[-1] - np.mean(f_arr)) / std_val) if std_val > 0 else 0.0
 
-    # Susun Payload Final
     payload = {
         "ticker": ticker,
         "lookback_days": lookback_days,
@@ -107,15 +101,14 @@ def get_foreign_flow_analytics(
             "dates": dates,
             "foreign_net": foreign_net,
             "close_prices": closes,
-            "hmm_states": regime_data.get("states", [])
+            "hmm_states": [int(x) for x in regime_data.get("states", [])]
         },
         "models": {
-            "regime_probabilities": regime_data.get("probabilities", []),
+            "regime_probabilities": [[float(p) for p in row] for row in regime_data.get("probabilities", [])],
             "impulse_response": var_irf_data
         }
     }
 
-    # 5. Simpan ke Redis (Cache bertahan selama 8 Jam)
     if redis_client:
         try:
             redis_client.setex(cache_key, 28800, json.dumps(payload))
