@@ -1,20 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-import useSWR, { useSWRConfig } from "swr";
-import { Icon } from "@iconify/react";
+import { useParams } from "next/navigation";
+import useSWR from "swr";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Bar,
-  ComposedChart,
-  ReferenceLine
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, ComposedChart, ReferenceLine
 } from "recharts";
 
 import BrokerFlowTab from "@/components/analysis/BrokerFlowTab";
@@ -22,6 +12,8 @@ import CausalityTab from "@/components/analysis/CausalityTab";
 import ValidationTab from "@/components/analysis/ValidationTab";
 import ScreenerTab from "@/components/analysis/ScreenerTab";
 import RawTablesTab from "@/components/analysis/RawTablesTab";
+import TickerSearch from "@/components/layout/TickerSearch";
+import { useAppStore } from "@/store/useAppStore";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -54,481 +46,140 @@ function signalColor(score: number | null): string {
   return "#f43f5e";
 }
 
-// Hanya digunakan untuk memberi warna teks pada nama profil
 export function getProfileTextColor(label: string) {
   const l = label.toLowerCase();
-  if (l.includes("foreign smart")) return "#10b981"; // 🟢 Emerald
-  if (l.includes("local inst")) return "#3b82f6"; // 🔵 Blue
-  if (l.includes("market maker")) return "#a855f7"; // 🟣 Purple
-  if (l.includes("speculative")) return "#f59e0b"; // 🟠 Amber
-  return "#94a3b8"; // ⚪ Retail / Other
+  if (l.includes("foreign smart")) return "#10b981";
+  if (l.includes("local inst")) return "#3b82f6";
+  if (l.includes("market maker")) return "#a855f7";
+  if (l.includes("speculative")) return "#f59e0b";
+  return "#94a3b8";
 }
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
-const UNIVERSES = [
-  "watchlist", "idx80", "lq45", "idx_high_dividend", "idx_bumn", 
-  "idx_smc", "esg_kehati", "idxenergy", "idxtrans", "idxinfra", 
-  "idxtechno", "idxpropert", "idxfinance", "idxhealth", "idxcyclic", 
-  "idxnoncyc", "idxindust", "idxbasic", "bisnis-27"
-];
-const WINDOWS = [20, 30, 60, 90, 180];
-const HORIZONS = [1, 3, 5, 10];
 
 /* ==================== MAIN PAGE COMPONENT ==================== */
 export default function TickerPage() {
   const params = useParams();
-  const router = useRouter();
-  const { mutate } = useSWRConfig();
-  const ticker = String(params.ticker || "").toUpperCase();
+  const tickerFromUrl = String(params.ticker || "").toUpperCase();
+  
+  const { 
+    activeTicker, setActiveTicker, 
+    analysisDate, windowDays, universe, horizon, minEvents 
+  } = useAppStore();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
 
-  /* Sidebar Controls */
-  const [universe, setUniverse] = useState("watchlist");
-  const [universeOpen, setUniverseOpen] = useState(false); // <--- State dropdown khusus
-  const [analysisDate, setAnalysisDate] = useState("");
-  const [windowDays, setWindowDays] = useState(20);
-  const [horizon, setHorizon] = useState(10);
-  const [minEvents, setMinEvents] = useState(5);
-  const [minNetBuy, setMinNetBuy] = useState(0);
-
-  /* Watchlist Sync */
-  const [localWatchlist, setLocalWatchlist] = useState<string[]>([]);
+  // Sinkronisasi URL dengan Global Store Zustand
   useEffect(() => {
-    try {
-      const ls = localStorage.getItem("tradepulse_watchlist");
-      if (ls) setLocalWatchlist(JSON.parse(ls));
-    } catch (e) {}
-  }, []);
-
-  /* Backfill manual range state */
-  const [backfillStart, setBackfillStart] = useState("");
-  const [backfillEnd, setBackfillEnd] = useState("");
-  const [pipelineRunning, setPipelineRunning] = useState<string | null>(null);
-  const [isRefreshingMaster, setIsRefreshingMaster] = useState(false);
-
-  /* SWR Data Fetching */
-  const { data: statusData, mutate: mutateStatus } = useSWR("/api/bandar/system-status", fetcher);
-  const { data: datesData } = useSWR(ticker ? "/api/bandar/dates/" + ticker : null, fetcher);
-
-  const availableDates: string[] = datesData?.dates || [];
-
-  /* Initialize analysisDate & backfill date */
-  useEffect(() => {
-    if (availableDates.length > 0 && !analysisDate) {
-      const latest = availableDates[availableDates.length - 1];
-      setAnalysisDate(latest);
-      setBackfillEnd(latest);
-      
-      const d = new Date(latest);
-      d.setDate(d.getDate() - 90);
-      setBackfillStart(d.toISOString().split("T")[0]);
+    if (tickerFromUrl && tickerFromUrl !== activeTicker) {
+      setActiveTicker(tickerFromUrl);
     }
-  }, [availableDates, analysisDate]);
+  }, [tickerFromUrl, activeTicker, setActiveTicker]);
 
-  /* Detail Data Fetch */
   const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "");
   const { data, error, isLoading } = useSWR(
-    ticker ? "/api/bandar/detail/" + ticker + qs : null,
+    activeTicker ? "/api/bandar/detail/" + activeTicker + qs : null,
     fetcher,
     { refreshInterval: 60000 }
   );
 
-  const handleCalendarChange = (selected: string) => {
-    if (!selected || availableDates.length === 0) return;
-    if (availableDates.includes(selected)) {
-      setAnalysisDate(selected);
-      return;
-    }
-    const priorDates = availableDates.filter((d) => d <= selected);
-    if (priorDates.length > 0) {
-      setAnalysisDate(priorDates[priorDates.length - 1]);
-    } else {
-      setAnalysisDate(availableDates[0]);
-    }
-  };
-
-  const handleRefreshMaster = async () => {
-    if (isRefreshingMaster) return;
-    setIsRefreshingMaster(true);
-    try {
-      const res = await fetch("/api/bandar/universe/refresh", { method: "POST" });
-      const json = await res.json();
-      if (json.status === "success") {
-        await mutate("/api/bandar/universe/all");
-        await mutateStatus();
-        alert(`Sukses: ${json.message}`);
-      } else {
-        alert(`Gagal: ${json.error || "Gagal refresh master tickers"}`);
-      }
-    } catch (e: any) {
-      alert(`Error koneksi: ${e.message}`);
-    } finally {
-      setIsRefreshingMaster(false);
-    }
-  };
-
-  const runPipeline = async (type: "today" | "missing" | "backfill") => {
-    setPipelineRunning(type);
-    try {
-      const payload: any = { universe_mode: universe };
-      // Kalau pakai custom local watchlist, timpa dengan array eksplisit
-      if (universe === "watchlist" && localWatchlist.length > 0) {
-          payload.tickers = localWatchlist;
-      }
-
-      let res;
-      if (type === "today") {
-        res = await fetch("/api/bandar/pipeline/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else if (type === "missing") {
-        payload.start_date = analysisDate || statusData?.latest_date;
-        payload.end_date = new Date().toISOString().split("T")[0];
-        res = await fetch("/api/bandar/pipeline/backfill", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        payload.start_date = backfillStart;
-        payload.end_date = backfillEnd;
-        res = await fetch("/api/bandar/pipeline/backfill", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
-      const json = await res.json();
-      if (res.ok) {
-        alert("Pipeline selesai dijalankan.");
-        mutate(() => true, undefined, { revalidate: true });
-      } else {
-        alert("Pipeline error: " + (json.detail || "Gagal"));
-      }
-    } catch (e: any) {
-      alert("Error: " + e.message);
-    } finally {
-      setPipelineRunning(null);
-    }
-  };
-
-  if (!ticker) {
-    return <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">No ticker</div>;
+  if (!activeTicker) {
+    return <div className="min-h-screen bg-[#08090C] text-neutral-100 flex items-center justify-center">No ticker selected</div>;
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex">
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+    <div className="max-w-7xl mx-auto px-4 py-4">
+      {/* Kolom Pencarian Global */}
+      <TickerSearch />
+
+      <div className="mb-4 bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
+        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
+        <h1 className="text-lg sm:text-xl font-bold text-white mb-2">Smart Money Dashboard: {activeTicker}</h1>
+        <div className="flex flex-wrap gap-2">
+          <span className="text-[10px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-2.5 py-1 shadow-sm">
+            Window: {data?.window_start || "..."} s/d {data?.analysis_date || "..."}
+          </span>
+        </div>
+      </div>
+
+      {isLoading && <div className="text-neutral-400 text-xs mb-3">Memuat data analisis...</div>}
+      {error && <div className="text-red-400 text-xs mb-3">Gagal mengambil data</div>}
+
+      {data && !data.error && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
+          <MetricCard label="Conviction Score" value={data.conviction_score?.toFixed(1) + "/100"} note="weighted model" tone={data.conviction_score} />
+          <MetricCard label="Signal" value={data.signal} note="selected date" tone={null} accent={signalColor(data.signal_score)} />
+          <MetricCard label="5D Return" value={fmtPct(data.ret_5d)} note="price context" tone={data.ret_5d} />
+          <MetricCard label="Foreign Net 5D" value={fmtRp(data.foreign_5d)} note="broker summary" tone={data.foreign_5d} />
+          <MetricCard label="Top Buyer" value={data.top_buyer?.broker || "-"} note={fmtRp(data.top_buyer?.net)} tone={1} />
+          <MetricCard label="Smart Cumulative" value={fmtRp(data.smart_cumulative)} note={(data.smart_daily?.length || 0) + " broker days"} tone={data.smart_cumulative} />
+        </div>
       )}
 
-      {/* Sidebar Controls */}
-      <aside className={
-        "fixed lg:sticky top-0 z-50 h-screen w-72 bg-neutral-900 border-r border-neutral-800 overflow-y-auto " +
-        "transition-transform duration-300 ease-in-out " +
-        (sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0")
-      }>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Smart Flow</div>
-              <h2 className="text-sm font-bold text-white">Controls</h2>
-            </div>
-            <button 
-              onClick={handleRefreshMaster} 
-              disabled={isRefreshingMaster}
-              title="Sinkronisasi Master Tickers dari IDX.co.id"
-              className="p-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-neutral-300 hover:text-orange-400 transition-colors"
-            >
-              <Icon icon="ph:arrows-clockwise-duotone" width="16" className={isRefreshingMaster ? "animate-spin text-orange-400" : ""} />
-            </button>
-          </div>
-
-          {/* Universe & Live DB Stats */}
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Universe Filter</label>
-            
-            {/* Custom Universe Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setUniverseOpen(!universeOpen)}
-                className="w-full flex items-center justify-between bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none hover:border-orange-500/50 transition-colors"
-              >
-                <span>{universe.toUpperCase()}</span>
-                <Icon icon={universeOpen ? "ph:caret-up-bold" : "ph:caret-down-bold"} className="text-neutral-500" />
-              </button>
-              
-              {universeOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setUniverseOpen(false)}></div>
-                  <div className="absolute top-full left-0 w-full mt-1.5 bg-[#08090C] border border-neutral-700 rounded-lg shadow-2xl z-50 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-700">
-                    {UNIVERSES.map((u) => (
-                      <button
-                        key={u}
-                        onClick={() => {
-                          setUniverse(u);
-                          setUniverseOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 text-[11px] font-semibold tracking-wider border-b border-white/[0.04] last:border-0 transition-colors ${
-                          universe === u ? "text-orange-400 bg-orange-500/10" : "text-neutral-300 hover:bg-neutral-800"
-                        }`}
-                      >
-                        {u.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="text-[10px] text-neutral-400 mt-1.5 flex flex-col gap-0.5 bg-neutral-950/40 p-2 rounded border border-neutral-800/80">
-              <span className="flex items-center gap-1.5 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <b>{statusData?.active_tickers ?? "..."}</b> emiten aktif di database
-              </span>
-              <span className="text-neutral-500 font-mono text-[9px]">
-                Data BEI terupdate: <b className="text-neutral-300">{statusData?.latest_date ?? "-"}</b>
-              </span>
-            </div>
-          </div>
-
-          {/* Analysis Date (Calendar Mode) */}
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Analysis Date</label>
-            <input
-              type="date"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none focus:border-orange-500/50 [color-scheme:dark]"
-              value={analysisDate}
-              max={availableDates[availableDates.length - 1] || statusData?.latest_date || ""}
-              onChange={(e) => handleCalendarChange(e.target.value)}
-            />
-            <div className="text-[9px] text-neutral-500 mt-1">
-              Data aktif: <span className="text-neutral-300 font-mono">{analysisDate || "Memuat..."}</span>
-            </div>
-          </div>
-
-          {/* Broker Window */}
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Broker Window</label>
-            <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none"
-              value={windowDays}
-              onChange={(e) => setWindowDays(Number(e.target.value))}
-            >
-              {WINDOWS.map((w) => (
-                <option key={w} value={w}>{w} calendar days</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Validation Horizon */}
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Validation Horizon</label>
-            <select
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 outline-none"
-              value={horizon}
-              onChange={(e) => setHorizon(Number(e.target.value))}
-            >
-              {HORIZONS.map((h) => (
-                <option key={h} value={h}>{h} trading days</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filter Ambang Batas */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Min Events</label>
-              <input
-                type="number"
-                min={3}
-                max={30}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-neutral-200 outline-none"
-                value={minEvents}
-                onChange={(e) => setMinEvents(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Min Buy Rp B</label>
-              <input
-                type="number"
-                min={0}
-                step={0.5}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-neutral-200 outline-none"
-                value={minNetBuy}
-                onChange={(e) => setMinNetBuy(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <hr className="border-neutral-800" />
-
-          {/* Action Pipeline Buttons */}
-          <div className="space-y-2">
-            <button 
-              onClick={() => runPipeline("today")}
-              disabled={pipelineRunning !== null}
-              className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors disabled:opacity-50 text-left flex items-center justify-between"
-            >
-              <span>Run latest pipeline</span>
-              {pipelineRunning === "today" && <Icon icon="ph:spinner-gap" className="animate-spin text-orange-400" />}
-            </button>
-
-            <button 
-              onClick={() => runPipeline("missing")}
-              disabled={pipelineRunning !== null}
-              className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors disabled:opacity-50 text-left flex items-center justify-between"
-            >
-              <span>Fetch missing broker dates</span>
-              {pipelineRunning === "missing" && <Icon icon="ph:spinner-gap" className="animate-spin text-orange-400" />}
-            </button>
-
-            {/* Backfill Range Inputs */}
-            <div className="pt-1">
-              <label className="block text-[9px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Backfill Custom Range</label>
-              <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                <input
-                  type="date"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[10px] text-neutral-300 [color-scheme:dark]"
-                  value={backfillStart}
-                  onChange={(e) => setBackfillStart(e.target.value)}
-                />
-                <input
-                  type="date"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[10px] text-neutral-300 [color-scheme:dark]"
-                  value={backfillEnd}
-                  onChange={(e) => setBackfillEnd(e.target.value)}
-                />
-              </div>
-              <button 
-                onClick={() => runPipeline("backfill")}
-                disabled={pipelineRunning !== null || !backfillStart || !backfillEnd}
-                className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-semibold text-neutral-300 transition-colors disabled:opacity-50 text-left flex items-center justify-between"
-              >
-                <span>Backfill broker history</span>
-                {pipelineRunning === "backfill" && <Icon icon="ph:spinner-gap" className="animate-spin text-orange-400" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="text-[9px] text-neutral-600 pt-2 font-mono">
-            InvestOwl Platform • Port: 8000
-          </div>
+      {data?.alerts?.length > 0 && (
+        <div className="mb-4 bg-amber-950/40 border border-amber-800/50 rounded-xl px-3.5 py-2.5">
+          {data.alerts.map((a: string, i: number) => (
+            <div key={i} className="text-xs text-amber-300">{a}</div>
+          ))}
         </div>
-      </aside>
+      )}
 
-      {/* Main View */}
-      <main className="flex-1 min-w-0 pb-20">
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-neutral-900 border-b border-neutral-800">
-          <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300">
-            <Icon icon="ph:list" width="20" />
-          </button>
-          <span className="font-bold text-white">{ticker}</span>
+      {data?.verdict && (
+        <div className="mb-4 bg-blue-950/30 border-l-4 border-orange-500 rounded-r-xl px-3.5 py-2.5">
+          <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">Current read</div>
+          <div className="text-xs text-neutral-200 leading-relaxed">{data.verdict}</div>
         </div>
+      )}
 
-        <div className="max-w-7xl mx-auto px-4 py-4">
-
-          {/* Header Dashboard */}
-          <div className="mb-4 bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-            <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
-            <h1 className="text-lg sm:text-xl font-bold text-white mb-2">Smart Money Dashboard</h1>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-[10px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-2.5 py-1 shadow-sm">
-                Window: {data?.window_start || "..."} s/d {data?.analysis_date || "..."}
-              </span>
-            </div>
-          </div>
-
-          {isLoading && <div className="text-neutral-400 text-xs mb-3">Memuat data analisis...</div>}
-          {error && <div className="text-red-400 text-xs mb-3">Gagal mengambil data</div>}
-
-          {/* Metric Cards */}
-          {data && !data.error && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
-              <MetricCard label="Conviction Score" value={data.conviction_score?.toFixed(1) + "/100"} note="weighted model" tone={data.conviction_score} />
-              <MetricCard label="Signal" value={data.signal} note="selected date" tone={null} accent={signalColor(data.signal_score)} />
-              <MetricCard label="5D Return" value={fmtPct(data.ret_5d)} note="price context" tone={data.ret_5d} />
-              <MetricCard label="Foreign Net 5D" value={fmtRp(data.foreign_5d)} note="broker summary" tone={data.foreign_5d} />
-              <MetricCard label="Top Buyer" value={data.top_buyer?.broker || "-"} note={fmtRp(data.top_buyer?.net)} tone={1} />
-              <MetricCard label="Smart Cumulative" value={fmtRp(data.smart_cumulative)} note={(data.smart_daily?.length || 0) + " broker days"} tone={data.smart_cumulative} />
-            </div>
-          )}
-
-          {data?.alerts?.length > 0 && (
-            <div className="mb-4 bg-amber-950/40 border border-amber-800/50 rounded-xl px-3.5 py-2.5">
-              {data.alerts.map((a: string, i: number) => (
-                <div key={i} className="text-xs text-amber-300">{a}</div>
-              ))}
-            </div>
-          )}
-
-          {data?.verdict && (
-            <div className="mb-4 bg-blue-950/30 border-l-4 border-orange-500 rounded-r-xl px-3.5 py-2.5">
-              <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">Current read</div>
-              <div className="text-xs text-neutral-200 leading-relaxed">{data.verdict}</div>
-            </div>
-          )}
-
-          {/* Tabs Nav */}
-          <div className="border-b border-neutral-800 mb-4">
-            <div className="flex gap-1 overflow-x-auto">
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={
-                    "px-3.5 py-2 text-xs font-semibold whitespace-nowrap rounded-t-lg transition-colors " +
-                    (activeTab === tab
-                      ? "text-white bg-neutral-800 border-b-2 border-orange-500"
-                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900")
-                  }
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tab Views */}
-          <div>
-            {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
-            {activeTab === "Broker Flow" && <BrokerFlowTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
-            {activeTab === "Causality" && <CausalityTab ticker={ticker} analysisDate={analysisDate} windowDays={windowDays} />}
-            {activeTab === "Validation" && (
-              <ValidationTab
-                ticker={ticker}
-                analysisDate={analysisDate}
-                windowDays={windowDays}
-                universeMode={universe}
-                horizon={horizon}
-                minEvents={minEvents}
-              />
-            )}
-            {activeTab === "Screener" && (
-              <ScreenerTab
-                universeMode={universe}
-                analysisDate={analysisDate}
-                windowDays={windowDays}
-                customTickers={universe === "watchlist" ? localWatchlist : []}
-              />
-            )}
-            {activeTab === "Raw Tables" && (
-              <RawTablesTab
-                ticker={ticker}
-                analysisDate={analysisDate}
-                windowDays={windowDays}
-              />
-            )}
-          </div>
+      {/* Tabs Nav */}
+      <div className="border-b border-neutral-800 mb-4">
+        <div className="flex gap-1 overflow-x-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={
+                "px-3.5 py-2 text-xs font-semibold whitespace-nowrap rounded-t-lg transition-colors " +
+                (activeTab === tab
+                  ? "text-white bg-neutral-800 border-b-2 border-orange-500"
+                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900")
+              }
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-      </main>
+      </div>
+
+      {/* Tab Views */}
+      <div>
+        {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
+        {activeTab === "Broker Flow" && <BrokerFlowTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />}
+        {activeTab === "Causality" && <CausalityTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />}
+        {activeTab === "Validation" && (
+          <ValidationTab
+            ticker={activeTicker}
+            analysisDate={analysisDate}
+            windowDays={windowDays}
+            universeMode={universe}
+            horizon={horizon}
+            minEvents={minEvents}
+          />
+        )}
+        {activeTab === "Screener" && (
+          <ScreenerTab universeMode={universe} analysisDate={analysisDate} windowDays={windowDays} customTickers={[]} />
+        )}
+        {activeTab === "Raw Tables" && (
+          <RawTablesTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />
+        )}
+      </div>
     </div>
   );
 }
+
+// =========================================================================
+// BAWAAN ASLI ANDA: KOMPONEN METRIC & OVERVIEW TAB 
+// =========================================================================
 
 function MetricCard({ label, value, note, tone, accent }: { label: string; value: string; note: string; tone: number | null; accent?: string }) {
   let color = "#94a3b8";
