@@ -1,5 +1,8 @@
-// frontend/lib/api.ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const IS_CLIENT = typeof window !== 'undefined';
+
+const API_BASE_URL = IS_CLIENT 
+  ? (process.env.NEXT_PUBLIC_API_URL || '') 
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
 export async function fetchWithCache<T>(
   path: string,
