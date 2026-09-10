@@ -64,7 +64,8 @@ export default function TickerPage() {
   
   const { 
     activeTicker, setActiveTicker, 
-    analysisDate, windowDays, universe, horizon, minEvents 
+    analysisDate, windowDays, universe, horizon, minEvents,
+    localWatchlist 
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState("Overview");
@@ -167,8 +168,14 @@ export default function TickerPage() {
           />
         )}
         {activeTab === "Screener" && (
-          <ScreenerTab universeMode={universe} analysisDate={analysisDate} windowDays={windowDays} customTickers={[]} />
+          <ScreenerTab
+            universeMode={universe}
+            analysisDate={analysisDate}
+            windowDays={windowDays}
+            customTickers={universe === "watchlist" ? localWatchlist : []} // <-- Diperbaiki di sini
+          />
         )}
+
         {activeTab === "Raw Tables" && (
           <RawTablesTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />
         )}
