@@ -1,12 +1,12 @@
 import useSWR from 'swr';
-import { fetcher } from '@/lib/api'; 
+import { fetchWithCache } from '@/lib/api'; 
 
 export function useForeignFlowAnalytics(ticker: string, lookbackDays: number = 60) {
   const { data, error, isLoading } = useSWR(
     ticker ? `/api/foreign-flow/${ticker}?lookback_days=${lookbackDays}` : null,
-    fetcher,
+    fetchWithCache,
     {
-      revalidateOnFocus: false, // Menghindari fetch ulang berlebih karena data sudah di-cache Redis
+      revalidateOnFocus: false,
       dedupingInterval: 60000,
     }
   );
@@ -17,4 +17,3 @@ export function useForeignFlowAnalytics(ticker: string, lookbackDays: number = 6
     isError: error
   };
 }
-
