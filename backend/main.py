@@ -18,6 +18,7 @@ from models import BrokerFlow
 from routers import stocks, broker
 from app.routers import bandarmology
 from idx_bandarmology.universe import refresh_master_tickers
+from routers import foreign_flow
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
 app.include_router(bandarmology.router)
+app.include_router(foreign_flow.router)
 
 @app.get("/", tags=["Health"])
 def root():
