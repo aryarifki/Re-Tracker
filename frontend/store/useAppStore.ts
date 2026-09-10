@@ -1,11 +1,9 @@
 import { create } from "zustand";
 
 interface AppState {
-  // Ticker aktif & navigasi
   activeTicker: string;
   sidebarOpen: boolean;
   
-  // Kontrol Filter Global (Eks-Sidebar)
   summaryDays: number;
   universe: string;
   analysisDate: string;
@@ -13,8 +11,10 @@ interface AppState {
   horizon: number;
   minEvents: number;
   minNetBuy: number;
+  
+  // State baru untuk sinkronisasi Screener
+  localWatchlist: string[];
 
-  // Actions
   setActiveTicker: (ticker: string) => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setSummaryDays: (days: number) => void;
@@ -24,10 +24,11 @@ interface AppState {
   setHorizon: (horizon: number) => void;
   setMinEvents: (events: number) => void;
   setMinNetBuy: (buy: number) => void;
+  setLocalWatchlist: (list: string[]) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  activeTicker: "BBCA", // Default
+  activeTicker: "BBCA",
   sidebarOpen: false,
   
   summaryDays: 30,
@@ -37,6 +38,8 @@ export const useAppStore = create<AppState>((set) => ({
   horizon: 10,
   minEvents: 5,
   minNetBuy: 0,
+  
+  localWatchlist: [], // Default kosong
 
   setActiveTicker: (ticker) => set({ activeTicker: ticker.toUpperCase() }),
   setSidebarOpen: (isOpen) => set({ sidebarOpen: isOpen }),
@@ -47,4 +50,5 @@ export const useAppStore = create<AppState>((set) => ({
   setHorizon: (horizon) => set({ horizon }),
   setMinEvents: (events) => set({ minEvents: events }),
   setMinNetBuy: (buy) => set({ minNetBuy: buy }),
+  setLocalWatchlist: (list) => set({ localWatchlist: list }),
 }));
