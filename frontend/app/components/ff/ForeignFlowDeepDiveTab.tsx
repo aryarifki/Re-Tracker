@@ -1,25 +1,25 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import dynamic from 'next/dynamic';
 import { useAppStore } from '@/store/useAppStore';
 import { useForeignFlowAnalytics } from '@/hooks/useForeignFlow';
-import { MetricCard } from '@/app/components/MetricCard';
+import { Icon } from "@iconify/react";
 
-// Impor dinamis untuk komponen ECharts dari folder yang sama (ff/)
+// Z-index aman dari hydration error
 const VARChart = dynamic(() => import('./VARChart'), { ssr: false });
 const HMMChart = dynamic(() => import('./HMMChart'), { ssr: false });
 
 export default function ForeignFlowDeepDiveTab() {
-  const { activeTicker } = useAppStore();
-  const [lookback, setLookback] = useState<number>(60);
+  // Hanya membaca state dari Sidebar (Zustand Global), tidak ada state lokal
+  const { activeTicker, summaryDays } = useAppStore();
   
-  const { data, isLoading, isError } = useForeignFlowAnalytics(activeTicker, lookback);
+  const { data, isLoading, isError } = useForeignFlowAnalytics(activeTicker, summaryDays);
 
-  const getHmmTone = (state: number): "positive" | "negative" | "neutral" => {
-    if (state === 2) return "positive"; // Akumulasi
-    if (state === 0) return "negative"; // Distribusi
-    return "neutral";                   
+  const getHmmTone = (state: number): string => {
+    if (state === 2) return "#10b981"; // Hijau Akumulasi
+    if (state === 0) return "#f43f5e"; // Merah Distribusi
+    return "#94a3b8";                  // Abu Netral
   };
 
   const getHmmLabel = (state: number): string => {
@@ -34,94 +34,100 @@ export default function ForeignFlowDeepDiveTab() {
     ? data.timeseries.hmm_states[data.timeseries.hmm_states.length - 1] 
     : 1;
 
+  // Mendapatkan Data Perusahaan (Terkoneksi ke Backend & master_emiten)
+  const companyName = data?.company?.name || "Perusahaan Tidak Diketahui";
+  const groupName = data?.company?.group || "Independen / Belum Terpetakan";
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 pb-24">
-      {/* Header Panel */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#0F1117] p-4 rounded-xl border border-white/[0.07]">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100">Institutional Deep Dive</h1>
-          <p className="text-sm text-slate-400">HMM Regime & VAR Causality for {activeTicker}</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Window:
+    <div className="flex flex-col gap-4 p-4 md:p-6 pb-24">
+      
+      {/* Ticker & Company Header (BOLD Putih) */}
+      <div className="mb-2">
+        <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+          {activeTicker} 
+          <span className="text-sm font-semibold bg-white/10 text-neutral-300 px-3 py-1 rounded-full">
+            {summaryDays} Days Window
           </span>
-          <select 
-            className="bg-[#161922] border border-white/[0.15] rounded-md px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-slate-500 font-mono-nums transition-colors cursor-pointer"
-            value={lookback}
-            onChange={(e) => setLookback(Number(e.target.value))}
-          >
-            <option value={20}>20 Days</option>
-            <option value={60}>60 Days</option>
-            <option value={120}>120 Days</option>
-            <option value={250}>250 Days</option>
-          </select>
+        </h1>
+        <div className="flex items-center gap-2 mt-1.5 text-sm text-neutral-400">
+          <span>{companyName}</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" />
+          <span className="text-orange-400 font-semibold">{groupName}</span>
         </div>
       </div>
 
-      {/* State: Loading */}
+      {/* State: Loading & Error */}
       {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-slate-500 animate-pulse font-mono-nums tracking-wider text-sm">
-            RUNNING QUANTITATIVE MODELS FOR {activeTicker}...
-          </div>
+        <div className="flex items-center justify-center py-20 text-neutral-500 animate-pulse font-mono tracking-wider text-sm">
+          <Icon icon="ph:spinner-gap-duotone" className="animate-spin mr-2" width="20" /> RUNNING ALGORITHMS...
         </div>
       )}
       
-      {/* State: Error */}
       {isError && !isLoading && (
-        <div className="p-6 text-center text-rose-400 bg-rose-500/[0.02] rounded-xl border-l-4 border-l-rose-500 border border-white/[0.07]">
-          Gagal memuat analitik. Histori aliran dana asing untuk {activeTicker} tidak mencukupi.
+        <div className="p-4 text-center text-rose-400 bg-rose-500/10 rounded-xl border-l-4 border-l-rose-500 border border-white/[0.07] text-sm">
+          Gagal memuat analitik. Histori aliran dana asing untuk {activeTicker} tidak mencukupi atau koneksi terputus.
         </div>
       )}
 
       {/* State: Success */}
       {!isLoading && !isError && data && (
         <>
-          {/* Baris MetricCards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <MetricCard 
-              label="CURRENT REGIME" 
-              value={getHmmLabel(latestState)}
-              subValue="Hidden Markov Model"
-              tone={getHmmTone(latestState)}
-            />
+          {/* Compact Metric Cards (Senada dengan Dashboard) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 border-l-4" style={{ borderLeftColor: getHmmTone(latestState) }}>
+              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">CURRENT REGIME</div>
+              <div className="text-base font-bold" style={{ color: getHmmTone(latestState) }}>{getHmmLabel(latestState)}</div>
+              <div className="text-[10px] text-neutral-500 mt-0.5">Hidden Markov Model</div>
+            </div>
             
-            <MetricCard 
-              label="FLOW MOMENTUM" 
-              value={`${zScoreValue > 0 ? '+' : ''}${zScoreValue.toFixed(2)}`}
-              subValue="Z-Score (Std Dev)"
-              tone={zScoreValue > 1 ? "positive" : zScoreValue < -1 ? "negative" : "neutral"}
-            />
+            <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 border-l-4" style={{ borderLeftColor: zScoreValue > 1 ? "#10b981" : zScoreValue < -1 ? "#f43f5e" : "#94a3b8" }}>
+              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">FLOW MOMENTUM</div>
+              <div className="text-base font-bold text-white">{`${zScoreValue > 0 ? '+' : ''}${zScoreValue.toFixed(2)}`}</div>
+              <div className="text-[10px] text-neutral-500 mt-0.5">Z-Score (Std Deviasi)</div>
+            </div>
 
-            <MetricCard 
-              label="FOREIGN CONCENTRATION" 
-              value={hhiValue.toFixed(4)}
-              subValue={hhiValue > 0.5 ? "Highly Concentrated" : "Distributed"}
-              tone={hhiValue > 0.5 ? "warning" : "neutral"}
-            />
+            <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 border-l-4" style={{ borderLeftColor: hhiValue > 0.3 ? "#f59e0b" : "#94a3b8" }}>
+              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">CONCENTRATION (HHI)</div>
+              <div className="text-base font-bold text-white">{hhiValue.toFixed(4)}</div>
+              <div className="text-[10px] text-neutral-500 mt-0.5">{hhiValue > 0.3 ? "Highly Concentrated" : "Distributed"}</div>
+            </div>
           </div>
 
-          {/* Baris Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-[#0F1117] p-5 rounded-xl border border-white/[0.07] hover:border-white/[0.14] transition-colors">
-              <h3 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-4">
-                HMM Market Regime ({activeTicker})
-              </h3>
-              <div className="w-full h-[350px]">
+          {/* Baris Charts (Z-Index diatur melalui kontainer ECharts, Warna Soft di dalam chart) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+            
+            {/* HMM Chart Container */}
+            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07]">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon icon="ph:chart-line-up-bold" className="text-neutral-500" width="16" />
+                <h3 className="text-xs font-semibold tracking-wider text-neutral-200 uppercase">HMM Market Regime</h3>
+              </div>
+              <div className="w-full h-[320px] relative z-0">
                 <HMMChart timeSeries={data.timeseries} />
+              </div>
+              <div className="mt-4 pt-3 border-t border-white/[0.05]">
+                <p className="text-[11px] leading-relaxed text-neutral-400">
+                  <span className="font-bold text-neutral-200">💡 Cara Membaca:</span> Area <span className="text-emerald-400">Hijau (Akumulasi)</span>, <span className="text-rose-400">Merah (Distribusi)</span>, dan <span className="text-neutral-500">Abu-Abu (Netral)</span>. Jika harga saham turun namun latar berubah hijau, hal tersebut mengindikasikan sinyal <span className="text-white italic">hidden accumulation</span> (asing diam-diam akumulasi saat harga lemah), yang sering menjadi indikasi <span className="font-semibold text-emerald-400">early reversal</span>.
+                </p>
               </div>
             </div>
             
-            <div className="bg-[#0F1117] p-5 rounded-xl border border-white/[0.07] hover:border-white/[0.14] transition-colors">
-              <h3 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-4">
-                Foreign Shock Causality (VAR)
-              </h3>
-              <div className="w-full h-[350px]">
+            {/* VAR Chart Container */}
+            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07]">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon icon="ph:pulse-bold" className="text-neutral-500" width="16" />
+                <h3 className="text-xs font-semibold tracking-wider text-neutral-200 uppercase">Foreign Shock Causality (VAR)</h3>
+              </div>
+              <div className="w-full h-[320px] relative z-0">
                 <VARChart irfData={data.models.impulse_response} />
               </div>
+              <div className="mt-4 pt-3 border-t border-white/[0.05]">
+                <p className="text-[11px] leading-relaxed text-neutral-400">
+                  <span className="font-bold text-neutral-200">💡 Cara Membaca:</span> Sumbu X (T+0 s/d T+10) adalah hari pasca kejutan dana asing. Garis biru di atas 0 menandakan dampak positif kuat terhadap harga. Jika garis melengkung turun mendekati 0 di T+5, efek kejutnya <span className="text-rose-300">sementara</span>. Jika konsisten di atas 0 hingga T+10, pembelian asing memiliki efek <span className="font-semibold text-blue-400">persisten</span> pada pergerakan harga.
+                </p>
+              </div>
             </div>
+
           </div>
         </>
       )}
