@@ -98,8 +98,8 @@ export default function ForeignFlowDeepDiveTab() {
             <MetricCard 
               label="FOREIGN CONCENTRATION" 
               value={hhiValue.toFixed(4)}
-              subValue={hhiValue > 0.3 ? "Highly Concentrated" : "Distributed"}
-              tone={hhiValue > 0.3 ? "warning" : "neutral"}
+              subValue={hhiValue > 0.5 ? "Highly Concentrated" : "Distributed"}
+              tone={hhiValue > 0.5 ? "warning" : "neutral"}
             />
           </div>
 
