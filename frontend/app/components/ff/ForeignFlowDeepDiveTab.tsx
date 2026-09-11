@@ -9,17 +9,17 @@ import { Icon } from "@iconify/react";
 // Z-index aman dari hydration error (ssr: false)
 const VARChart = dynamic(() => import('./VARChart'), { ssr: false });
 const HMMChart = dynamic(() => import('./HMMChart'), { ssr: false });
+const BrokerHeatmap = dynamic(() => import('./BrokerHeatmap'), { ssr: false });
+const BrokerNetworkGraph = dynamic(() => import('./BrokerNetworkGraph'), { ssr: false });
 
 export default function ForeignFlowDeepDiveTab() {
-  // Langsung membaca activeTicker dan windowDays dari Sidebar global
   const { activeTicker, windowDays } = useAppStore();
-  
   const { data, isLoading, isError } = useForeignFlowAnalytics(activeTicker, windowDays);
 
   const getHmmTone = (state: number): string => {
-    if (state === 2) return "#10b981"; // Hijau Akumulasi
-    if (state === 0) return "#f43f5e"; // Merah Distribusi
-    return "#94a3b8";                  // Abu Netral
+    if (state === 2) return "#10b981"; 
+    if (state === 0) return "#f43f5e"; 
+    return "#94a3b8";                  
   };
 
   const getHmmLabel = (state: number): string => {
@@ -40,7 +40,7 @@ export default function ForeignFlowDeepDiveTab() {
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 pb-24">
       
-      {/* 1. Header Ticker & Nama Grup (BOLD Putih, Tanpa teks lama) */}
+      {/* Header Ticker & Nama Grup */}
       <div className="mb-2">
         <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
           {activeTicker} 
@@ -69,7 +69,7 @@ export default function ForeignFlowDeepDiveTab() {
 
       {!isLoading && !isError && data && (
         <>
-          {/* 2. Compact Metric Cards */}
+          {/* Compact Metric Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 border-l-4" style={{ borderLeftColor: getHmmTone(latestState) }}>
               <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">CURRENT REGIME</div>
@@ -90,10 +90,8 @@ export default function ForeignFlowDeepDiveTab() {
             </div>
           </div>
 
-          {/* 3. Baris Charts dengan Teks Keterangan & Z-Index aman */}
+          {/* Baris Charts 1: HMM & VAR */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
-            
-            {/* HMM Chart */}
             <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07] flex flex-col">
               <div className="flex items-center gap-2 mb-3">
                 <Icon icon="ph:chart-line-up-bold" className="text-neutral-500" width="16" />
@@ -109,7 +107,6 @@ export default function ForeignFlowDeepDiveTab() {
               </div>
             </div>
             
-            {/* VAR Chart */}
             <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07] flex flex-col">
               <div className="flex items-center gap-2 mb-3">
                 <Icon icon="ph:pulse-bold" className="text-neutral-500" width="16" />
@@ -120,7 +117,43 @@ export default function ForeignFlowDeepDiveTab() {
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.05] flex-grow">
                 <p className="text-[11px] leading-relaxed text-neutral-400 text-justify">
-                  <strong className="text-neutral-200">Cara Membaca:</strong> Sumbu X (T+0 s/d T+10) adalah hari pasca *shock* dana asing. Garis biru jauh di atas 0 menandakan dampak positif kuat terhadap harga. Jika garis melengkung turun mendekati 0 di T+5, efeknya sangat <span className="text-rose-300">sementara</span>. Jika konsisten di atas 0 hingga T+10, pembelian asing tersebut memiliki efek <strong className="text-blue-400">persisten</strong> dalam menahan harga tetap kuat.
+                  <strong className="text-neutral-200">Cara Membaca:</strong> Sumbu X (T+0 s/d T+10) adalah hari pasca shock dana asing. Garis biru jauh di atas 0 menandakan dampak positif kuat terhadap harga. Jika garis melengkung turun mendekati 0 di T+5, efeknya sangat <span className="text-rose-300">sementara</span>. Jika konsisten di atas 0 hingga T+10, pembelian asing tersebut memiliki efek <strong className="text-blue-400">persisten</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Baris Charts 2: Broker Heatmap & Network Graph */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+            
+            {/* Heatmap Chart */}
+            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07] flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon icon="ph:squares-four-bold" className="text-neutral-500" width="16" />
+                <h3 className="text-xs font-semibold tracking-wider text-neutral-200 uppercase">Top Broker Calendar Heatmap</h3>
+              </div>
+              <div className="w-full h-[320px] relative z-0">
+                <BrokerHeatmap heatmapData={data.models.broker_heatmap} />
+              </div>
+              <div className="mt-4 pt-3 border-t border-white/[0.05] flex-grow">
+                <p className="text-[11px] leading-relaxed text-neutral-400 text-justify">
+                  <strong className="text-neutral-200">Cara Membaca:</strong> Matriks aktivitas broker harian yang telah di-normalisasi (Z-Score). Warna <span className="text-emerald-400">Hijau</span> menandakan akumulasi dominan, sedangkan <span className="text-rose-400">Merah</span> menandakan distribusi kuat. Membantu melacak konsistensi akumulasi dari broker asing spesifik selama jendela periode berjalan.
+                </p>
+              </div>
+            </div>
+
+            {/* Network Graph Chart */}
+            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07] flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon icon="ph:share-network-bold" className="text-neutral-500" width="16" />
+                <h3 className="text-xs font-semibold tracking-wider text-neutral-200 uppercase">Syndicate Network Graph</h3>
+              </div>
+              <div className="w-full h-[320px] relative z-0">
+                <BrokerNetworkGraph networkData={data.models.broker_network} />
+              </div>
+              <div className="mt-4 pt-3 border-t border-white/[0.05] flex-grow">
+                <p className="text-[11px] leading-relaxed text-neutral-400 text-justify">
+                  <strong className="text-neutral-200">Cara Membaca:</strong> Analisis hubungan pergerakan antar broker (Pearson Correlation). Ukuran lingkaran (node) menunjukkan dominasi sentral broker penggerak utama (Anchor Broker). Garis <span className="text-emerald-400">Hijau</span> menandakan sinkronisasi akumulasi bersama (ko-akumulasi), dan kluster warna yang sama menandakan satu sindikat aksi menurut algoritma Louvain.
                 </p>
               </div>
             </div>
