@@ -80,6 +80,13 @@ def get_foreign_flow_analytics(
     micro_rows = db.execute(query_micro, {"ticker": ticker, "start_date": start_date}).fetchall()
     broker_net_values = [float(r.total_net) for r in micro_rows]
 
+    # Ekstraksi Data Afiliasi Grup dari Master Emiten
+    query_emiten = text("SELECT company_name, conglomerate_group FROM master_emiten WHERE ticker = :ticker")
+    emiten_row = db.execute(query_emiten, {"ticker": ticker}).fetchone()
+    
+    company_name = emiten_row.company_name if emiten_row else "Perusahaan Tidak Diketahui"
+    group_name = emiten_row.conglomerate_group if emiten_row else "Independen / Belum Terpetakan"
+
     # Eksekusi Analitik
     regime_data = compute_hmm_regime(foreign_net, n_states=3)
     var_irf_data = compute_var_irf(foreign_net, returns, lags=2, horizon=10)
@@ -91,6 +98,10 @@ def get_foreign_flow_analytics(
 
     payload = {
         "ticker": ticker,
+        "company": {
+            "name": company_name,
+            "group": group_name
+        },
         "lookback_days": lookback_days,
         "latest_date": dates[-1],
         "features": {
