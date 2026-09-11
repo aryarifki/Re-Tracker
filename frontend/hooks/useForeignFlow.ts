@@ -5,8 +5,7 @@ const fetcher = async (url: string) => {
   
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    
-    throw new Error(errorData.detail || "Gagal mengambil data analitik dari server");
+    throw new Error(errorData.detail || "Gagal mengambil data analitik");
   }
   
   return res.json();
@@ -14,13 +13,12 @@ const fetcher = async (url: string) => {
 
 export function useForeignFlowAnalytics(ticker: string, lookbackDays: number = 60) {
   const { data, error, isLoading } = useSWR(
-    // URL relatif murni, membiarkan Next.js proxy mengurus sisanya
     ticker ? `/api/foreign-flow/${ticker}?lookback_days=${lookbackDays}` : null,
     fetcher,
     {
-      revalidateOnFocus: false, // Mencegah fetch berulang saat pindah tab browser
-      dedupingInterval: 60000,  // Cache SWR bertahan 1 menit
-      shouldRetryOnError: false // Jangan paksa retry jika API mereturn 404 (data saham memang kurang)
+      revalidateOnFocus: false, 
+      dedupingInterval: 60000,  
+      shouldRetryOnError: false 
     }
   );
 
