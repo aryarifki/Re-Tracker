@@ -3,16 +3,15 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 
 export default function VARChart({ irfData }: { irfData: any }) {
-  if (!irfData || !irfData.foreign_shock_to_ret) return null;
+  if (!irfData || !irfData.foreign_shock_to_ret || !irfData.lower_bound || !irfData.upper_bound) return null;
 
   const horizon = irfData.foreign_shock_to_ret.length;
   const xAxisData = Array.from({ length: horizon }, (_, i) => `T+${i}`);
   
-  // Kalkulasi selisih untuk area confidence band
   const lowerBound = irfData.lower_bound;
-  const upperBound = irfData.foreign_shock_to_ret.map((val: number, i: number) => 
-    val + (val - lowerBound[i]) // Perkiraan simetris jika upper tidak tersedia eksplisit
-  );
+  const upperBound = irfData.upper_bound;
+  
+  // Kalkulasi selisih tinggi area untuk ECharts stack
   const bandDifference = upperBound.map((up: number, i: number) => up - lowerBound[i]);
 
   const option = {
@@ -51,4 +50,3 @@ export default function VARChart({ irfData }: { irfData: any }) {
 
   return <ReactECharts option={option} style={{ height: '350px', width: '100%' }} />;
 }
-
