@@ -1,18 +1,26 @@
 import useSWR from 'swr';
-import { fetchWithCache } from '@/lib/api'; 
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    
+    throw new Error(errorData.detail || "Gagal mengambil data analitik dari server");
+  }
+  
+  return res.json();
+};
 
 export function useForeignFlowAnalytics(ticker: string, lookbackDays: number = 60) {
   const { data, error, isLoading } = useSWR(
+    // URL relatif murni, membiarkan Next.js proxy mengurus sisanya
     ticker ? `/api/foreign-flow/${ticker}?lookback_days=${lookbackDays}` : null,
-    async (url) => {
-      const res = await fetchWithCache(url);
-      // Jika fetchWithCache mereturn null (gagal), paksa SWR membacanya sebagai error
-      if (!res) throw new Error("Gagal mengambil data dari API");
-      return res;
-    },
+    fetcher,
     {
-      revalidateOnFocus: false,
-      dedupingInterval: 60000,
+      revalidateOnFocus: false, // Mencegah fetch berulang saat pindah tab browser
+      dedupingInterval: 60000,  // Cache SWR bertahan 1 menit
+      shouldRetryOnError: false // Jangan paksa retry jika API mereturn 404 (data saham memang kurang)
     }
   );
 
