@@ -14,12 +14,27 @@ def compute_hmm_regime(net_flows: list, n_states: int = 3) -> dict:
     model = hmm.GaussianHMM(n_components=n_states, covariance_type="full", n_iter=100, random_state=42)
     model.fit(X)
     
-    states = model.predict(X)
-    probs = model.predict_proba(X)
+    raw_states = model.predict(X)
+    raw_probs = model.predict_proba(X)
+    
+    # Mapping state deterministik berdasarkan mean foreign_net
+    # Indeks 0 = Distribusi (Terendah), 1 = Netral, 2 = Akumulasi (Tertinggi)
+    means = model.means_.flatten()
+    sorted_indices = np.argsort(means) # Urutan dari terkecil ke terbesar
+    
+    mapping = {
+        int(sorted_indices[0]): 0, # Lowest mean -> 0 (Distribution)
+        int(sorted_indices[1]): 1, # Middle mean -> 1 (Neutral)
+        int(sorted_indices[2]): 2  # Highest mean -> 2 (Accumulation)
+    }
+    
+    mapped_states = [mapping[int(s)] for s in raw_states]
+    # Reorder kolom probabilities agar konsisten dengan mapped_states [0, 1, 2]
+    mapped_probs = raw_probs[:, sorted_indices]
     
     return {
-        "states": states.tolist(),
-        "probabilities": probs.tolist()
+        "states": mapped_states,
+        "probabilities": mapped_probs.tolist()
     }
 
 def compute_var_irf(foreign_net: list, returns: list, lags: int = 2, horizon: int = 5) -> dict:
@@ -38,9 +53,17 @@ def compute_var_irf(foreign_net: list, returns: list, lags: int = 2, horizon: in
         irf = results.irf(horizon)
         
         # Ekstrak efek shock 'foreign' (indeks 0) terhadap 'ret' (indeks 1)
+        irfs = irf.irfs[:, 1, 0]
+        stderr = irf.stderr()[:, 1, 0]
+        
+        # Hitung Confidence Interval absolut 95% (Z-score 1.96)
+        lower_bound = irfs - 1.96 * stderr
+        upper_bound = irfs + 1.96 * stderr
+        
         return {
-            "foreign_shock_to_ret": irf.irfs[:, 1, 0].tolist(),
-            "lower_bound": irf.stderr()[:, 1, 0].tolist() if hasattr(irf, 'stderr') else [],
+            "foreign_shock_to_ret": irfs.tolist(),
+            "lower_bound": lower_bound.tolist(),
+            "upper_bound": upper_bound.tolist()
         }
     except Exception:
         # Menghindari crash jika matriks singular (data terlalu datar)
@@ -61,4 +84,3 @@ def compute_foreign_hhi(broker_net_values: list) -> float:
     shares = abs_vals / total
     hhi = np.sum(shares ** 2)
     return float(hhi)
-
