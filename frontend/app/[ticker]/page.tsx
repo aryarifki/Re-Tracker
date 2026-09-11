@@ -77,6 +77,17 @@ export default function TickerPage() {
     }
   }, [tickerFromUrl, activeTicker, setActiveTicker]);
 
+  useEffect(() => {
+    if (universe === "watchlist" || activeTab === "Screener") {
+      try {
+        const ls = localStorage.getItem("tradepulse_watchlist");
+        if (ls) {
+          setLocalWatchlist(JSON.parse(ls));
+        }
+      } catch (e) {}
+    }
+  }, [universe, activeTab, setLocalWatchlist]);
+
   const qs = "?window_days=" + windowDays + (analysisDate ? "&analysis_date=" + analysisDate : "");
   const { data, error, isLoading } = useSWR(
     activeTicker ? "/api/bandar/detail/" + activeTicker + qs : null,
