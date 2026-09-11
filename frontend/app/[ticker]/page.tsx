@@ -65,7 +65,7 @@ export default function TickerPage() {
   const { 
     activeTicker, setActiveTicker, 
     analysisDate, windowDays, universe, horizon, minEvents,
-    localWatchlist 
+    localWatchlist, setLocalWatchlist // <-- Tambahkan setLocalWatchlist di sini
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState("Overview");
