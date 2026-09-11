@@ -6,15 +6,15 @@ import { useAppStore } from '@/store/useAppStore';
 import { useForeignFlowAnalytics } from '@/hooks/useForeignFlow';
 import { Icon } from "@iconify/react";
 
-// Z-index aman dari hydration error
+// Z-index aman dari hydration error (ssr: false)
 const VARChart = dynamic(() => import('./VARChart'), { ssr: false });
 const HMMChart = dynamic(() => import('./HMMChart'), { ssr: false });
 
 export default function ForeignFlowDeepDiveTab() {
-  // Hanya membaca state dari Sidebar (Zustand Global), tidak ada state lokal
-  const { activeTicker, summaryDays } = useAppStore();
+  // Langsung membaca activeTicker dan windowDays dari Sidebar global
+  const { activeTicker, windowDays } = useAppStore();
   
-  const { data, isLoading, isError } = useForeignFlowAnalytics(activeTicker, summaryDays);
+  const { data, isLoading, isError } = useForeignFlowAnalytics(activeTicker, windowDays);
 
   const getHmmTone = (state: number): string => {
     if (state === 2) return "#10b981"; // Hijau Akumulasi
@@ -34,19 +34,18 @@ export default function ForeignFlowDeepDiveTab() {
     ? data.timeseries.hmm_states[data.timeseries.hmm_states.length - 1] 
     : 1;
 
-  // Mendapatkan Data Perusahaan (Terkoneksi ke Backend & master_emiten)
   const companyName = data?.company?.name || "Perusahaan Tidak Diketahui";
   const groupName = data?.company?.group || "Independen / Belum Terpetakan";
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 pb-24">
       
-      {/* Ticker & Company Header (BOLD Putih) */}
+      {/* 1. Header Ticker & Nama Grup (BOLD Putih, Tanpa teks lama) */}
       <div className="mb-2">
         <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
           {activeTicker} 
           <span className="text-sm font-semibold bg-white/10 text-neutral-300 px-3 py-1 rounded-full">
-            {summaryDays} Days Window
+            {windowDays} Days Window
           </span>
         </h1>
         <div className="flex items-center gap-2 mt-1.5 text-sm text-neutral-400">
@@ -56,7 +55,6 @@ export default function ForeignFlowDeepDiveTab() {
         </div>
       </div>
 
-      {/* State: Loading & Error */}
       {isLoading && (
         <div className="flex items-center justify-center py-20 text-neutral-500 animate-pulse font-mono tracking-wider text-sm">
           <Icon icon="ph:spinner-gap-duotone" className="animate-spin mr-2" width="20" /> RUNNING ALGORITHMS...
@@ -65,14 +63,13 @@ export default function ForeignFlowDeepDiveTab() {
       
       {isError && !isLoading && (
         <div className="p-4 text-center text-rose-400 bg-rose-500/10 rounded-xl border-l-4 border-l-rose-500 border border-white/[0.07] text-sm">
-          Gagal memuat analitik. Histori aliran dana asing untuk {activeTicker} tidak mencukupi atau koneksi terputus.
+          Gagal memuat analitik. Histori aliran dana asing untuk {activeTicker} pada window {windowDays} hari tidak mencukupi (Min 20 hari).
         </div>
       )}
 
-      {/* State: Success */}
       {!isLoading && !isError && data && (
         <>
-          {/* Compact Metric Cards (Senada dengan Dashboard) */}
+          {/* 2. Compact Metric Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-3 border-l-4" style={{ borderLeftColor: getHmmTone(latestState) }}>
               <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">CURRENT REGIME</div>
@@ -93,37 +90,37 @@ export default function ForeignFlowDeepDiveTab() {
             </div>
           </div>
 
-          {/* Baris Charts (Z-Index diatur melalui kontainer ECharts, Warna Soft di dalam chart) */}
+          {/* 3. Baris Charts dengan Teks Keterangan & Z-Index aman */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
             
-            {/* HMM Chart Container */}
-            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07]">
+            {/* HMM Chart */}
+            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07] flex flex-col">
               <div className="flex items-center gap-2 mb-3">
                 <Icon icon="ph:chart-line-up-bold" className="text-neutral-500" width="16" />
                 <h3 className="text-xs font-semibold tracking-wider text-neutral-200 uppercase">HMM Market Regime</h3>
               </div>
-              <div className="w-full h-[320px] relative z-0">
+              <div className="w-full h-[280px] relative z-0">
                 <HMMChart timeSeries={data.timeseries} />
               </div>
-              <div className="mt-4 pt-3 border-t border-white/[0.05]">
-                <p className="text-[11px] leading-relaxed text-neutral-400">
-                  <span className="font-bold text-neutral-200">💡 Cara Membaca:</span> Area <span className="text-emerald-400">Hijau (Akumulasi)</span>, <span className="text-rose-400">Merah (Distribusi)</span>, dan <span className="text-neutral-500">Abu-Abu (Netral)</span>. Jika harga saham turun namun latar berubah hijau, hal tersebut mengindikasikan sinyal <span className="text-white italic">hidden accumulation</span> (asing diam-diam akumulasi saat harga lemah), yang sering menjadi indikasi <span className="font-semibold text-emerald-400">early reversal</span>.
+              <div className="mt-4 pt-3 border-t border-white/[0.05] flex-grow">
+                <p className="text-[11px] leading-relaxed text-neutral-400 text-justify">
+                  <strong className="text-neutral-200">Cara Membaca:</strong> Latar area <span className="text-emerald-400">Hijau (Akumulasi)</span>, <span className="text-rose-400">Merah (Distribusi)</span>, dan <span className="text-neutral-500">Abu-Abu (Netral)</span> menunjukkan fase aliran dana asing. Jika harga saham turun namun latar berubah hijau, hal tersebut mengindikasikan sinyal <span className="text-white italic">hidden accumulation</span> (asing diam-diam akumulasi saat harga lemah), yang sering menjadi indikator <strong className="text-emerald-400">early reversal</strong>.
                 </p>
               </div>
             </div>
             
-            {/* VAR Chart Container */}
-            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07]">
+            {/* VAR Chart */}
+            <div className="bg-[#0F1117] p-4 rounded-xl border border-white/[0.07] flex flex-col">
               <div className="flex items-center gap-2 mb-3">
                 <Icon icon="ph:pulse-bold" className="text-neutral-500" width="16" />
                 <h3 className="text-xs font-semibold tracking-wider text-neutral-200 uppercase">Foreign Shock Causality (VAR)</h3>
               </div>
-              <div className="w-full h-[320px] relative z-0">
+              <div className="w-full h-[280px] relative z-0">
                 <VARChart irfData={data.models.impulse_response} />
               </div>
-              <div className="mt-4 pt-3 border-t border-white/[0.05]">
-                <p className="text-[11px] leading-relaxed text-neutral-400">
-                  <span className="font-bold text-neutral-200">💡 Cara Membaca:</span> Sumbu X (T+0 s/d T+10) adalah hari pasca kejutan dana asing. Garis biru di atas 0 menandakan dampak positif kuat terhadap harga. Jika garis melengkung turun mendekati 0 di T+5, efek kejutnya <span className="text-rose-300">sementara</span>. Jika konsisten di atas 0 hingga T+10, pembelian asing memiliki efek <span className="font-semibold text-blue-400">persisten</span> pada pergerakan harga.
+              <div className="mt-4 pt-3 border-t border-white/[0.05] flex-grow">
+                <p className="text-[11px] leading-relaxed text-neutral-400 text-justify">
+                  <strong className="text-neutral-200">Cara Membaca:</strong> Sumbu X (T+0 s/d T+10) adalah hari pasca *shock* dana asing. Garis biru jauh di atas 0 menandakan dampak positif kuat terhadap harga. Jika garis melengkung turun mendekati 0 di T+5, efeknya sangat <span className="text-rose-300">sementara</span>. Jika konsisten di atas 0 hingga T+10, pembelian asing tersebut memiliki efek <strong className="text-blue-400">persisten</strong> dalam menahan harga tetap kuat.
                 </p>
               </div>
             </div>
