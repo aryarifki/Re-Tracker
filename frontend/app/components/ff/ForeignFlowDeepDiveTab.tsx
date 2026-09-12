@@ -40,16 +40,21 @@ export default function ForeignFlowDeepDiveTab() {
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 pb-24">
       
-      {/* Header Ticker & Nama Grup */}
-      <div className="mb-2">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-          {activeTicker} 
-          <span className="text-sm font-semibold bg-white/10 text-neutral-300 px-3 py-1 rounded-full">
+      {/* Kotak Pemisah Header (Sama Persis dengan Smart Money Dashboard) */}
+      <div className="mb-1 bg-neutral-900 border border-neutral-800 rounded-xl p-3.5 shadow-sm">
+        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">
+          FOREIGN FLOW DEEP DIVE
+        </div>
+        
+        <div className="flex items-center gap-3 mb-1.5">
+          <h1 className="text-lg sm:text-xl font-bold text-white">{activeTicker}</h1>
+          <span className="text-[10px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-2.5 py-1 shadow-sm">
             {windowDays} Days Window
           </span>
-        </h1>
-        <div className="flex items-center gap-2 mt-1.5 text-sm text-neutral-400">
-          <span>{companyName}</span>
+        </div>
+        
+        <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+          <span className="text-emerald-100/90">{companyName}</span>
           <span className="w-1.5 h-1.5 rounded-full bg-neutral-600" />
           <span className="text-orange-400 font-semibold">{groupName}</span>
         </div>
