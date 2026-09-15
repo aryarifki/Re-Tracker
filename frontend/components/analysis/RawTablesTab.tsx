@@ -20,8 +20,8 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
   const url = `/api/bandar/stocks/${ticker}/raw-tables?analysis_date=${analysisDate}&window_days=${windowDays}`;
   const { data, error, isLoading, isValidating, mutate } = useSWR(url, fetcher, { revalidateOnFocus: false });
 
-  if (isLoading && !data) return <div className="p-8 border border-white/[0.07] bg-[#0F1117] rounded-xl flex items-center justify-center gap-3 text-neutral-400 shadow-sm"><Icon icon="ph:spinner-gap-duotone" className="animate-spin" width="20" /> <span className="text-sm font-medium">Extracting raw database records...</span></div>;
-  if (error) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl">Error loading raw tables.</div>;
+  if (isLoading && !data) return <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] rounded-xl flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)] shadow-sm"><Icon icon="ph:spinner-gap-duotone" className="animate-spin text-[var(--md-sys-color-primary)]" width="20" /> <span className="text-sm font-medium">Extracting raw database records...</span></div>;
+  if (error) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-[var(--color-negative)] text-sm rounded-xl">Error loading raw tables.</div>;
 
   const flowRows = data?.flow || [];
   const actRows = data?.activity || [];
@@ -53,49 +53,49 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
 
   const getTypeChip = (type: string) => {
     const t = (type || "").toUpperCase();
-    if (t === "FOREIGN" || t === "ASING") return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-    if (t === "LOCAL" || t === "LOKAL") return "text-indigo-400 bg-indigo-500/10 border-indigo-500/20";
-    if (t === "GOV" || t === "PEMERINTAH") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-    return "text-neutral-400 bg-neutral-800 border-neutral-700";
+    if (t === "FOREIGN" || t === "ASING") return "text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/20";
+    if (t === "LOCAL" || t === "LOKAL") return "text-indigo-500 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20";
+    if (t === "GOV" || t === "PEMERINTAH") return "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    return "text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]";
   };
 
   const getSignalTheme = (sig: string) => {
     const s = (sig || "").toUpperCase();
-    if (s.includes("ACCUMULATION") || s.includes("BUY")) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-    if (s.includes("DISTRIBUTION") || s.includes("SELL")) return "text-rose-400 bg-rose-500/10 border-rose-500/20";
-    return "text-neutral-400 bg-[#08090C] border-white/[0.07]";
+    if (s.includes("ACCUMULATION") || s.includes("BUY")) return "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    if (s.includes("DISTRIBUTION") || s.includes("SELL")) return "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
+    return "text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]";
   };
 
   return (
     <div className="space-y-4">
       
       {/* ====== TABLE 1: BROKER FLOW ROWS ====== */}
-      <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm">
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm transition-colors duration-300">
         
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-white/[0.05] pb-3 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 gap-4">
             <div className="flex items-center gap-2">
-                <Icon icon="ph:database-duotone" className="text-blue-500" width="18" height="18" />
-                <h3 className="text-sm font-semibold text-neutral-200">Broker Flow Records</h3>
+                <Icon icon="ph:database-duotone" className="text-[var(--md-sys-color-primary)]" width="18" height="18" />
+                <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">Broker Flow Records</h3>
             </div>
             
             <button 
               onClick={() => mutate()}
               disabled={isValidating}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#08090C] hover:bg-neutral-800 border border-white/[0.07] rounded-md text-xs font-semibold text-neutral-300 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-semibold text-[var(--md-sys-color-on-surface)] transition-all active:scale-[0.98] disabled:opacity-50"
             >
               <Icon 
                 icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-bold"} 
-                className={isValidating ? "animate-spin text-neutral-500" : "text-neutral-400"} 
+                className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
                 width="14" height="14" 
               />
               <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
             </button>
         </div>
 
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2">
           <table className="w-full text-left whitespace-nowrap text-xs">
-            <thead className="sticky top-0 bg-[#0F1117] z-10">
-              <tr className="bg-[#08090C] text-neutral-500 border-b border-white/[0.05]">
+            <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10">
+              <tr className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)]">
                 <th className="py-2.5 px-4 font-medium rounded-tl-md">Date</th>
                 <th className="py-2.5 px-4 font-medium">Signal</th>
                 <th className="py-2.5 px-4 text-center font-medium">Score</th>
@@ -104,62 +104,62 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
                 <th className="py-2.5 px-4 text-right font-medium rounded-tr-md">Total Value</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.02]">
+            <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
               {flowRows.map((row: any, idx: number) => {
                 return (
-                  <tr key={idx} className="hover:bg-white/[0.02] transition-colors text-neutral-300">
-                    <td className="py-2.5 px-4 font-mono text-neutral-400">{row.date}</td>
+                  <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)]">
+                    <td className="py-2.5 px-4 font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.date}</td>
                     <td className="py-2.5 px-4 font-semibold uppercase tracking-wider text-[10px]">
                         <span className={`px-2 py-0.5 rounded border ${getSignalTheme(row.signal)}`}>
                             {row.signal}
                         </span>
                     </td>
                     <td className="py-2.5 px-4 text-center font-bold">
-                        <span className={`px-1.5 py-[1px] rounded text-[10px] ${row.score > 0 ? "bg-emerald-500/20 text-emerald-400" : row.score < 0 ? "bg-rose-500/20 text-rose-400" : "text-neutral-400 bg-neutral-800"}`}>
+                        <span className={`px-1.5 py-[1px] rounded text-[10px] ${row.score > 0 ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : row.score < 0 ? "bg-rose-500/20 text-rose-600 dark:text-rose-400" : "text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)]"}`}>
                             {row.score}
                         </span>
                     </td>
-                    <td className={`py-2.5 px-4 text-right font-mono font-medium ${row.foreign_net > 0 ? "text-emerald-400/90" : row.foreign_net < 0 ? "text-rose-400/90" : "text-neutral-500"}`}>
+                    <td className={`py-2.5 px-4 text-right font-mono font-medium ${row.foreign_net > 0 ? "text-[var(--color-positive)]" : row.foreign_net < 0 ? "text-[var(--color-negative)]" : "text-[var(--md-sys-color-on-surface-variant)]"}`}>
                         {fmtRp(row.foreign_net)}
                     </td>
-                    <td className={`py-2.5 px-4 text-right font-mono font-medium ${row.local_net > 0 ? "text-emerald-400/90" : row.local_net < 0 ? "text-rose-400/90" : "text-neutral-500"}`}>
+                    <td className={`py-2.5 px-4 text-right font-mono font-medium ${row.local_net > 0 ? "text-[var(--color-positive)]" : row.local_net < 0 ? "text-[var(--color-negative)]" : "text-[var(--md-sys-color-on-surface-variant)]"}`}>
                         {fmtRp(row.local_net)}
                     </td>
-                    <td className="py-2.5 px-4 text-right font-mono font-bold text-neutral-200">{fmtRp(row.total_value)}</td>
+                    <td className="py-2.5 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{fmtRp(row.total_value)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {flowRows.length === 0 && <div className="p-8 text-center text-neutral-500 text-xs">No flow records found in active window.</div>}
+          {flowRows.length === 0 && <div className="p-8 text-center text-[var(--md-sys-color-on-surface-variant)] text-xs">No flow records found in active window.</div>}
         </div>
       </div>
 
       {/* ====== TABLE 2: BROKER ACTIVITY ROWS ====== */}
-      <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm flex flex-col h-[600px]">
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm flex flex-col h-[600px] transition-colors duration-300">
         
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-white/[0.05] pb-3 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 flex-shrink-0">
             <div className="flex items-center gap-2">
-                <Icon icon="ph:list-numbers-duotone" className="text-blue-500" width="18" height="18" />
-                <h3 className="text-sm font-semibold text-neutral-200">Broker Activity Logs</h3>
+                <Icon icon="ph:list-numbers-duotone" className="text-[var(--md-sys-color-primary)]" width="18" height="18" />
+                <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">Broker Activity Logs</h3>
             </div>
             
-            <div className="flex items-center bg-[#08090C] border border-white/[0.07] rounded-md px-2.5 py-1.5 focus-within:border-blue-500/50 transition-colors">
-                <Icon icon="ph:magnifying-glass-duotone" className="text-neutral-500 mr-2" width="16" height="16" />
+            <div className="flex items-center bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2.5 py-1.5 focus-within:border-[var(--md-sys-color-primary)] transition-colors">
+                <Icon icon="ph:magnifying-glass-duotone" className="text-[var(--md-sys-color-on-surface-variant)] mr-2" width="16" height="16" />
                 <input 
                     type="text" 
                     placeholder="Search broker (e.g. YP)" 
                     value={searchTerm}
                     onChange={handleSearch}
-                    className="bg-transparent border-none outline-none text-xs text-neutral-200 w-48 uppercase placeholder-neutral-600 font-mono"
+                    className="bg-transparent border-none outline-none text-xs text-[var(--md-sys-color-on-surface)] w-48 uppercase placeholder-[var(--md-sys-color-on-surface-variant)] font-mono"
                 />
             </div>
         </div>
 
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2 flex-grow">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2 flex-grow">
           <table className="w-full text-left whitespace-nowrap text-xs">
-            <thead className="sticky top-0 bg-[#0F1117] z-10">
-              <tr className="bg-[#08090C] text-neutral-500 border-b border-white/[0.05]">
+            <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10">
+              <tr className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)]">
                 <th className="py-2.5 px-4 font-medium rounded-tl-md">Date</th>
                 <th className="py-2.5 px-4 font-medium">Broker</th>
                 <th className="py-2.5 px-4 font-medium">Type</th>
@@ -169,28 +169,28 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
                 <th className="py-2.5 px-4 text-right font-medium rounded-tr-md">Freq</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.02]">
+            <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
               {currentActRows.map((row: any, idx: number) => (
-                <tr key={idx} className="hover:bg-white/[0.02] transition-colors text-neutral-300">
-                  <td className="py-2.5 px-4 font-mono text-neutral-400">{row.date}</td>
-                  <td className="py-2.5 px-4 font-mono font-bold text-neutral-200">{row.broker}</td>
+                <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)]">
+                  <td className="py-2.5 px-4 font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.date}</td>
+                  <td className="py-2.5 px-4 font-mono font-bold text-[var(--md-sys-color-on-surface)]">{row.broker}</td>
                   <td className="py-2.5 px-4">
                      <span className={`px-2 py-[1.5px] rounded text-[9px] font-bold border tracking-wide uppercase ${getTypeChip(row.type)}`}>
                         {row.type}
                      </span>
                   </td>
-                  <td className="py-2.5 px-4 text-right font-mono text-emerald-400/80">{fmtRp(row.buy)}</td>
-                  <td className="py-2.5 px-4 text-right font-mono text-rose-400/80">{fmtRp(row.sell)}</td>
-                  <td className={`py-2.5 px-4 text-right font-mono font-bold ${row.net > 0 ? "text-emerald-400" : row.net < 0 ? "text-rose-400" : "text-neutral-500"}`}>
+                  <td className="py-2.5 px-4 text-right font-mono text-[var(--color-positive)] opacity-80">{fmtRp(row.buy)}</td>
+                  <td className="py-2.5 px-4 text-right font-mono text-[var(--color-negative)] opacity-80">{fmtRp(row.sell)}</td>
+                  <td className="py-2.5 px-4 text-right font-mono font-bold" style={{ color: row.net > 0 ? "var(--color-positive)" : row.net < 0 ? "var(--color-negative)" : "var(--md-sys-color-on-surface-variant)" }}>
                       {fmtRp(row.net)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-mono text-neutral-500">{row.freq.toLocaleString('id-ID')}</td>
+                  <td className="py-2.5 px-4 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.freq.toLocaleString('id-ID')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {currentActRows.length === 0 && (
-            <div className="p-8 text-center text-neutral-500 text-xs font-medium">
+            <div className="p-8 text-center text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
               {searchTerm ? `No activity found for broker "${searchTerm.toUpperCase()}".` : "No activity records found."}
             </div>
           )}
@@ -198,22 +198,22 @@ export default function RawTablesTab({ ticker, analysisDate, windowDays }: RawTa
 
         {/* Pagination Controls */}
         {filteredActRows.length > 0 && (
-          <div className="flex items-center justify-between border-t border-white/[0.05] pt-4 mt-2 flex-shrink-0">
-            <span className="text-[11px] text-neutral-500 font-medium">
-              Showing <span className="text-neutral-300 font-mono">{indexOfFirstRow + 1}</span> to <span className="text-neutral-300 font-mono">{Math.min(indexOfLastRow, filteredActRows.length)}</span> of <span className="text-neutral-300 font-mono">{filteredActRows.length}</span> rows
+          <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)] pt-4 mt-2 flex-shrink-0">
+            <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium">
+              Showing <span className="text-[var(--md-sys-color-on-surface)] font-mono">{indexOfFirstRow + 1}</span> to <span className="text-[var(--md-sys-color-on-surface)] font-mono">{Math.min(indexOfLastRow, filteredActRows.length)}</span> of <span className="text-[var(--md-sys-color-on-surface)] font-mono">{filteredActRows.length}</span> rows
             </span>
             <div className="flex gap-2">
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 bg-[#08090C] border border-white/[0.07] rounded-md text-xs font-bold text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 active:scale-[0.98]"
+                className="px-3 py-1.5 bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] hover:text-[var(--md-sys-color-on-surface)] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 active:scale-[0.98]"
               >
                 <Icon icon="ph:caret-left-bold" /> Prev
               </button>
               <button 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1.5 bg-[#08090C] border border-white/[0.07] rounded-md text-xs font-bold text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 active:scale-[0.98]"
+                className="px-3 py-1.5 bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] hover:text-[var(--md-sys-color-on-surface)] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 active:scale-[0.98]"
               >
                 Next <Icon icon="ph:caret-right-bold" />
               </button>
