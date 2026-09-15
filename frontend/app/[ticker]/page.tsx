@@ -33,7 +33,6 @@ function fmtPct(n: number | null): string {
   return (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 }
 
-// MENGGUNAKAN VARIABEL KUSTOM UNTUK KONTRAS TERBAIK (Mode Terang/Gelap)
 function signedColor(n: number): string {
   return n >= 0 ? "var(--color-positive)" : "var(--color-negative)";
 }
@@ -103,13 +102,22 @@ export default function TickerPage() {
     <div className="max-w-7xl mx-auto px-4 py-4 transition-colors duration-300">
       <TickerSearch />
 
-      <div className="mb-4 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 transition-colors duration-300">
-        <div className="text-[10px] font-bold text-[var(--md-sys-color-primary)] uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
-        <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)] mb-2">Smart Money Dashboard: {activeTicker}</h1>
-        <div className="flex flex-wrap gap-2">
+      <div className="mb-4 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 shadow-sm transition-colors duration-300">
+        <div className="text-[10px] font-bold text-[var(--md-sys-color-primary)] uppercase tracking-widest mb-0.5">
+          SMART MONEY DASHBOARD
+        </div>
+        
+        <div className="flex items-center gap-3 mb-1.5">
+          <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)]">{activeTicker}</h1>
           <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-2.5 py-1 shadow-sm">
             Window: {data?.window_start || "..."} s/d {data?.analysis_date || "..."}
           </span>
+        </div>
+        
+        <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+          <span className="text-[var(--md-sys-color-on-surface-variant)] font-medium">{data?.company?.name || "Bursa Efek Indonesia"}</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-outline-variant)]" />
+          <span className="text-[var(--md-sys-color-primary)] font-semibold">{data?.company?.group || "Sektor Perusahaan"}</span>
         </div>
       </div>
 
@@ -295,6 +303,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           </div>
         </div>
       </div>
+
       {/* 2. Smart Flow + Profile Net Flow */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
         <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 transition-colors duration-300">
