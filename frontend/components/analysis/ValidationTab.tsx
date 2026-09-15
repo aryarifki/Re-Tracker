@@ -61,8 +61,8 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
     });
   }, [data, scanMode]);
 
-  if (isLoading) return <div className="p-8 border border-white/[0.07] bg-[#0F1117] rounded-xl flex items-center justify-center gap-3 text-neutral-400 shadow-sm"><Icon icon="ph:spinner-gap-duotone" className="animate-spin" width="20" /> <span className="text-sm font-medium">Running historical validation models...</span></div>;
-  if (error || !data) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl">Error loading validation data.</div>;
+  if (isLoading) return <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] rounded-xl flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)] shadow-sm"><Icon icon="ph:spinner-gap-duotone" className="animate-spin text-[var(--md-sys-color-primary)]" width="20" /> <span className="text-sm font-medium">Running historical validation models...</span></div>;
+  if (error || !data) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-[var(--color-negative)] text-sm rounded-xl">Error loading validation data.</div>;
 
   const fmtPct = (val: number | null | undefined) => {
     if (val === null || val === undefined) return "-";
@@ -80,29 +80,31 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
   };
 
   const isBullish = chartData.length > 0 && chartData[chartData.length - 1].median >= 100;
-  const themeColor = isBullish ? "#10b981" : "#f43f5e";
+  // Ini untuk Chart (butuh value hex asli, bukan variable) 
+  // Kita fallback ke warna default jika tidak bisa baca
+  const themeColor = isBullish ? "#10b981" : "#f43f5e"; 
 
   return (
     <div className="space-y-4">
       
       {/* ====== BROKER-SPECIFIC RETURN VALIDATION ====== */}
-      <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-white/[0.05] pb-3">
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm transition-colors duration-300">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3">
           <div className="flex items-center gap-2">
-            <Icon icon="ph:check-square-offset-duotone" className="text-neutral-400" width="18" />
-            <h3 className="text-sm font-semibold text-neutral-200">Broker-Specific Return Validation</h3>
+            <Icon icon="ph:check-square-offset-duotone" className="text-[var(--md-sys-color-on-surface-variant)]" width="18" />
+            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">Broker-Specific Return Validation</h3>
           </div>
           
-          <div className="flex items-center bg-[#08090C] p-1 rounded-md border border-white/[0.07]">
+          <div className="flex items-center bg-[var(--md-sys-color-surface)] p-1 rounded-md border border-[var(--md-sys-color-outline-variant)]">
             <button 
               onClick={() => setScanMode("ticker")} 
-              className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${scanMode === "ticker" ? "bg-blue-500/15 text-blue-400 border border-blue-500/20" : "text-neutral-500 hover:text-neutral-300 border border-transparent"}`}
+              className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${scanMode === "ticker" ? "bg-blue-500/15 text-blue-500 dark:text-blue-400 border border-blue-500/20" : "text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] border border-transparent"}`}
             >
               Current Ticker ({ticker})
             </button>
             <button 
               onClick={() => setScanMode("all")} 
-              className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${scanMode === "all" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "text-neutral-500 hover:text-neutral-300 border border-transparent"}`}
+              className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${scanMode === "all" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" : "text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] border border-transparent"}`}
             >
               Watchlist ({universeMode})
             </button>
@@ -110,12 +112,12 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
         </div>
 
         {sortedScanData.length === 0 ? (
-          <div className="text-neutral-500 text-xs text-center py-8">No broker passes the current validation settings.</div>
+          <div className="text-[var(--md-sys-color-on-surface-variant)] text-xs text-center py-8">No broker passes the current validation settings.</div>
         ) : (
-          <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
+          <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2">
             <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="sticky top-0 bg-[#0F1117] z-10">
-                <tr className="text-neutral-500 border-b border-white/[0.05] bg-[#08090C]">
+              <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10">
+                <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container-high)]">
                   <th className="py-2.5 px-3 font-medium rounded-tl-md">Ticker</th>
                   <th className="py-2.5 px-3 font-medium">Broker</th>
                   <th className="py-2.5 px-3 text-right font-medium">Events</th>
@@ -127,22 +129,22 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
                   <th className="py-2.5 px-3 text-center font-medium rounded-tr-md">Significant</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.02]">
+              <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
                 {sortedScanData.map((b: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 px-3 font-semibold text-neutral-200">{b.ticker}</td>
-                    <td className="py-2.5 px-3 font-bold font-mono text-blue-400">{b.broker_code}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-neutral-300">{b.n_events}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">{fmtPct(b.win_rate)}</td>
-                    <td className={`py-2.5 px-3 text-right font-mono font-medium ${b.mean_fwd_return > 0 ? "text-emerald-400/80" : b.mean_fwd_return < 0 ? "text-rose-400/80" : "text-neutral-400"}`}>{fmtPct(b.mean_fwd_return)}</td>
-                    <td className={`py-2.5 px-3 text-right font-mono font-medium ${b.median_fwd_return > 0 ? "text-emerald-400/80" : b.median_fwd_return < 0 ? "text-rose-400/80" : "text-neutral-400"}`}>{fmtPct(b.median_fwd_return)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{fmtRp(b.total_net_value)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{b.p_value_one_sided?.toFixed(4) || "-"}</td>
+                  <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors">
+                    <td className="py-2.5 px-3 font-semibold text-[var(--md-sys-color-on-surface)]">{b.ticker}</td>
+                    <td className="py-2.5 px-3 font-bold font-mono text-blue-500 dark:text-blue-400">{b.broker_code}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{b.n_events}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-[var(--color-positive)]">{fmtPct(b.win_rate)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-medium" style={{ color: b.mean_fwd_return > 0 ? "var(--color-positive)" : b.mean_fwd_return < 0 ? "var(--color-negative)" : "var(--md-sys-color-on-surface-variant)" }}>{fmtPct(b.mean_fwd_return)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-medium" style={{ color: b.median_fwd_return > 0 ? "var(--color-positive)" : b.median_fwd_return < 0 ? "var(--color-negative)" : "var(--md-sys-color-on-surface-variant)" }}>{fmtPct(b.median_fwd_return)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{fmtRp(b.total_net_value)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{b.p_value_one_sided?.toFixed(4) || "-"}</td>
                     <td className="py-2.5 px-3 text-center">
                       {b.significant ? (
-                        <span className="px-2 py-[1.5px] rounded border font-semibold tracking-wide text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">YES</span>
+                        <span className="px-2 py-[1.5px] rounded border font-semibold tracking-wide text-[9px] bg-emerald-500/10 text-[var(--color-positive)] border-emerald-500/20">YES</span>
                       ) : (
-                        <span className="px-2 py-[1.5px] rounded border font-semibold tracking-wide text-[9px] bg-neutral-800 text-neutral-500 border-neutral-700">NO</span>
+                        <span className="px-2 py-[1.5px] rounded border font-semibold tracking-wide text-[9px] bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-[var(--md-sys-color-outline-variant)]">NO</span>
                       )}
                     </td>
                   </tr>
@@ -154,56 +156,56 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
       </div>
 
       {/* ====== ACCUMULATION EVENT STUDY ====== */}
-      <div className="bg-[#0F1117] border border-white/[0.07] rounded-xl p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-white/[0.05] pb-3">
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm transition-colors duration-300">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3">
           <div className="flex items-center gap-2">
-            <Icon icon="ph:trend-up-duotone" className="text-neutral-400" width="18" />
-            <h3 className="text-sm font-semibold text-neutral-200">Accumulation Event Study</h3>
+            <Icon icon="ph:trend-up-duotone" className="text-[var(--md-sys-color-on-surface-variant)]" width="18" />
+            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">Accumulation Event Study</h3>
           </div>
           
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <div className="relative">
               <input type="checkbox" className="sr-only" checked={showIndividual} onChange={(e) => setShowIndividual(e.target.checked)} />
-              <div className={`block w-9 h-5 rounded-full transition-colors ${showIndividual ? "bg-blue-500/40 border border-blue-500/50" : "bg-[#08090C] border border-white/[0.07]"}`}></div>
-              <div className={`absolute left-[3px] top-[3px] bg-neutral-300 w-3.5 h-3.5 rounded-full transition-transform ${showIndividual ? "transform translate-x-4 bg-blue-400" : ""}`}></div>
+              <div className={`block w-9 h-5 rounded-full transition-colors ${showIndividual ? "bg-[var(--md-sys-color-primary-container)] border border-[var(--md-sys-color-primary)]" : "bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]"}`}></div>
+              <div className={`absolute left-[3px] top-[3px] bg-neutral-300 dark:bg-neutral-400 w-3.5 h-3.5 rounded-full transition-transform ${showIndividual ? "transform translate-x-4 bg-[var(--md-sys-color-primary)]" : ""}`}></div>
             </div>
-            <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Show individual paths</span>
+            <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wide">Show individual paths</span>
           </label>
         </div>
 
         {chartData.length === 0 ? (
-          <div className="text-neutral-500 text-xs text-center py-8">No accumulation events found in this window.</div>
+          <div className="text-[var(--md-sys-color-on-surface-variant)] text-xs text-center py-8">No accumulation events found in this window.</div>
         ) : (
           <React.Fragment>
             {/* Chart Container */}
             <div className="h-64 mb-6">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" strokeOpacity={0.05} vertical={false} />
-                  <XAxis dataKey="day" stroke="#333" fontSize={10} fill="#737373" tickLine={false} axisLine={false} dy={10} />
-                  <YAxis domain={['auto', 'auto']} stroke="#333" fontSize={10} fill="#737373" tickLine={false} axisLine={false} tickFormatter={(val) => val.toFixed(1)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-outline-variant)" strokeOpacity={0.5} vertical={false} />
+                  <XAxis dataKey="day" stroke="var(--md-sys-color-outline-variant)" fontSize={10} fill="var(--md-sys-color-on-surface-variant)" tickLine={false} axisLine={false} dy={10} />
+                  <YAxis domain={['auto', 'auto']} stroke="var(--md-sys-color-outline-variant)" fontSize={10} fill="var(--md-sys-color-on-surface-variant)" tickLine={false} axisLine={false} tickFormatter={(val) => val.toFixed(1)} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0F1117', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px', boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)" }}
-                    itemStyle={{ color: '#e5e5e5' }}
-                    labelStyle={{ color: '#a3a3a3', fontWeight: 'bold', marginBottom: '4px' }}
+                    contentStyle={{ backgroundColor: 'var(--md-sys-color-surface-container-highest)', borderColor: 'var(--md-sys-color-outline-variant)', borderRadius: '8px', fontSize: '12px', boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
+                    itemStyle={{ color: 'var(--md-sys-color-on-surface)' }}
+                    labelStyle={{ color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 'bold', marginBottom: '4px' }}
                   />
-                  <ReferenceLine y={100} stroke="#525252" strokeDasharray="4 4" strokeWidth={1} />
+                  <ReferenceLine y={100} stroke="var(--md-sys-color-outline)" strokeDasharray="4 4" strokeWidth={1} />
                   
                   {showIndividual && (data.event_study?.paths || []).map((path: any) => (
-                    <Line key={path.id} type="monotone" dataKey={path.id} stroke="#525252" strokeWidth={1} dot={false} opacity={0.3} activeDot={false} isAnimationActive={false} />
+                    <Line key={path.id} type="monotone" dataKey={path.id} stroke="var(--md-sys-color-outline)" strokeWidth={1} dot={false} opacity={0.3} activeDot={false} isAnimationActive={false} />
                   ))}
                   
                   <Area type="monotone" dataKey="range" fill={themeColor} fillOpacity={0.1} stroke="none" isAnimationActive={false} />
-                  <Line type="monotone" dataKey="median" stroke={themeColor} strokeWidth={2} dot={{ r: 4, fill: themeColor, strokeWidth: 2, stroke: '#08090C' }} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="median" stroke={themeColor} strokeWidth={2} dot={{ r: 4, fill: themeColor, strokeWidth: 2, stroke: 'var(--md-sys-color-surface-container)' }} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
 
             {/* Event Study Table */}
-            <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-thumb-neutral-800 pb-2">
+            <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2">
               <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-[#0F1117]">
-                  <tr className="text-neutral-500 border-b border-white/[0.05] bg-[#08090C]">
+                <thead className="bg-[var(--md-sys-color-surface-container)]">
+                  <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container-high)]">
                     <th className="py-2.5 px-3 font-medium rounded-tl-md">Ticker</th>
                     <th className="py-2.5 px-3 font-medium">Signal Date</th>
                     <th className="py-2.5 px-3 font-medium">Signal</th>
@@ -213,13 +215,13 @@ export default function ValidationTab({ ticker, analysisDate, windowDays, univer
                     <th className="py-2.5 px-3 text-right font-medium rounded-tr-md">+10D</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.02]">
+                <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
                   {(data.event_study?.table || []).map((row: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors text-neutral-200">
+                    <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)]">
                       <td className="py-2.5 px-3 font-bold">{row.ticker}</td>
-                      <td className="py-2.5 px-3 text-neutral-400 font-mono">{row.signal_date.split(" ")[0]}</td>
+                      <td className="py-2.5 px-3 text-[var(--md-sys-color-on-surface-variant)] font-mono">{row.signal_date.split(" ")[0]}</td>
                       <td className="py-2.5 px-3">
-                        <span className={`px-2 py-[1.5px] rounded border font-semibold tracking-wide text-[9px] uppercase ${row.signal.includes("STRONG") ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>
+                        <span className={`px-2 py-[1.5px] rounded border font-semibold tracking-wide text-[9px] uppercase ${row.signal.includes("STRONG") ? "bg-emerald-500/10 text-[var(--color-positive)] border-emerald-500/20" : "bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/20"}`}>
                           {row.signal.replace(/_/g, " ")}
                         </span>
                       </td>
