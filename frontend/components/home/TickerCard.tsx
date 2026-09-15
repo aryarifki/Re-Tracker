@@ -26,30 +26,40 @@ export default function TickerCard({ item, onRemove }: { item: any; onRemove?: (
     <div className="relative group">
       <Link
         href={"/" + item.ticker}
-        className="block bg-[#0F1117] border border-white/[0.05] hover:border-white/[0.15] rounded-xl p-3 transition-all duration-200 active:scale-[0.98] shadow-sm"
+        className="block bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] hover:border-[var(--md-sys-color-primary)] rounded-xl p-3 transition-all duration-200 active:scale-[0.98] shadow-sm"
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-neutral-100">{item.ticker}</span>
+            <span className="font-bold text-sm text-[var(--md-sys-color-on-surface)]">{item.ticker}</span>
             <SignalBadge signal={item.signal} />
           </div>
           <Sparkline data={item.spark} up={up} />
         </div>
         
-        <div className="flex items-center justify-between text-[10px] font-medium border-t border-white/[0.02] pt-2">
+        <div className="flex items-center justify-between text-[10px] font-medium border-t border-[var(--md-sys-color-outline-variant)] pt-2">
           <div className="flex flex-col">
-            <span className="text-neutral-500 mb-0.5">Close</span>
-            <span className="text-neutral-200 tabular-nums">{item.close ?? "-"}</span>
+            <span className="text-[var(--md-sys-color-on-surface-variant)] mb-0.5">Close</span>
+            <span className="text-[var(--md-sys-color-on-surface)] tabular-nums font-bold">{item.close ?? "-"}</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-neutral-500 mb-0.5">Return 5D</span>
-            <span className={`tabular-nums ${up ? "text-emerald-400" : "text-rose-400"}`}>
+            <span className="text-[var(--md-sys-color-on-surface-variant)] mb-0.5">Return 5D</span>
+            <span 
+               className="tabular-nums font-bold" 
+               style={{ color: up ? "var(--color-positive)" : "var(--color-negative)" }}
+            >
               {fmtPct(item)}
             </span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-neutral-500 mb-0.5">Foreign 5D</span>
-            <span className={`tabular-nums ${item.foreign_net_5d > 0 ? "text-emerald-400" : item.foreign_net_5d < 0 ? "text-rose-400" : "text-neutral-400"}`}>
+            <span className="text-[var(--md-sys-color-on-surface-variant)] mb-0.5">Foreign 5D</span>
+            <span 
+               className="tabular-nums font-bold" 
+               style={{ 
+                 color: item.foreign_net_5d > 0 ? "var(--color-positive)" 
+                      : item.foreign_net_5d < 0 ? "var(--color-negative)" 
+                      : "var(--md-sys-color-on-surface-variant)" 
+               }}
+            >
               {fmtB(item.foreign_net_5d)}
             </span>
           </div>
@@ -59,7 +69,7 @@ export default function TickerCard({ item, onRemove }: { item: any; onRemove?: (
       {onRemove && (
         <button
           onClick={(e) => { e.preventDefault(); onRemove(item.ticker); }}
-          className="absolute -top-1.5 -right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-[#08090C] text-neutral-400 hover:text-rose-400 border border-neutral-700 hover:border-rose-500/50 transition-colors shadow-md z-10"
+          className="absolute -top-1.5 -right-1.5 w-6 h-6 flex items-center justify-center rounded-full bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--color-negative)] border border-[var(--md-sys-color-outline-variant)] hover:border-[var(--color-negative)] transition-colors shadow-md z-10"
         >
           <Icon icon="ph:x-bold" width="12" />
         </button>

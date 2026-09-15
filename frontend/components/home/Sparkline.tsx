@@ -21,7 +21,7 @@ export default function Sparkline({ data, up }: { data: number[]; up: boolean })
       <polyline
         points={pts}
         fill="none"
-        stroke={up ? "#34d399" : "#fb7185"}
+        stroke={up ? "var(--color-positive)" : "var(--color-negative)"}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

@@ -1,28 +1,77 @@
 @import "tailwindcss";
 
 @layer base {
+  /* =========================================
+     MD3 LIGHT THEME (Pastel Seed: #F9EDE1)
+     ========================================= */
   :root {
-    --bg-primary: #08090c;
-    --bg-surface: #0f1117;
-    --bg-surface-elevated: #161922;
-    --border-subtle: rgba(255, 255, 255, 0.07);
-    --border-highlight: rgba(255, 255, 255, 0.15);
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
+    --md-sys-color-surface: #F9EDE1;
+    --md-sys-color-on-surface: #1E1A17;
+    --md-sys-color-on-surface-variant: #4E453F;
+    
+    --md-sys-color-surface-container-lowest: #FFFFFF;
+    --md-sys-color-surface-container-low: #F3E7DB;
+    --md-sys-color-surface-container: #EDDFD3;
+    --md-sys-color-surface-container-high: #E7D8CB;
+    --md-sys-color-surface-container-highest: #E2D1C4;
+    
+    --md-sys-color-primary: #8C5000;
+    --md-sys-color-on-primary: #FFFFFF;
+    --md-sys-color-primary-container: #FFDCC2;
+    --md-sys-color-on-primary-container: #2D1600;
+    
+    --md-sys-color-outline: #84746A;
+    --md-sys-color-outline-variant: #D7C2B4;
+
+    /* Custom Accessible Colors for Financial Data (Light Mode = Darker) */
+    --color-positive: #166534; /* Dark Green */
+    --color-negative: #991B1B; /* Dark Red */
+
+    /* Legacy Variables */
+    --bg-primary: var(--md-sys-color-surface);
+    --bg-surface: var(--md-sys-color-surface-container);
+    --bg-surface-elevated: var(--md-sys-color-surface-container-high);
+    --border-subtle: var(--md-sys-color-outline-variant);
+    --border-highlight: var(--md-sys-color-outline);
+    --text-primary: var(--md-sys-color-on-surface);
+    --text-secondary: var(--md-sys-color-on-surface-variant);
     --text-muted: #64748b;
-    --acc-green: #10b981;
-    --dist-red: #f43f5e;
-    --foreign-blue: #3b82f6;
-    --local-purple: #8b5cf6;
-    --gov-amber: #f59e0b;
+  }
+
+  /* =========================================
+     MD3 DARK THEME
+     ========================================= */
+  [data-theme="dark"] {
+    --md-sys-color-surface: #141210;
+    --md-sys-color-on-surface: #EBE0D9;
+    --md-sys-color-on-surface-variant: #D7C2B4;
+    
+    --md-sys-color-surface-container-lowest: #0B0A08;
+    --md-sys-color-surface-container-low: #1C1916;
+    --md-sys-color-surface-container: #211D1A;
+    --md-sys-color-surface-container-high: #2B2622;
+    --md-sys-color-surface-container-highest: #36302A;
+    
+    --md-sys-color-primary: #FFB879;
+    --md-sys-color-on-primary: #4B2800;
+    --md-sys-color-primary-container: #6B3B00;
+    --md-sys-color-on-primary-container: #FFDCC2;
+    
+    --md-sys-color-outline: #9F8D83;
+    --md-sys-color-outline-variant: #52443C;
+
+    /* Custom Accessible Colors for Financial Data (Dark Mode = Brighter) */
+    --color-positive: #10B981; /* Bright Emerald */
+    --color-negative: #F43F5E; /* Bright Rose */
   }
 
   body {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
@@ -32,26 +81,25 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #08090c;
+  background: var(--md-sys-color-surface);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e2433;
+  background: var(--md-sys-color-surface-container-highest);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--md-sys-color-outline);
 }
 
-/* Tabular Nums for Financial Accuracy */
 .font-mono-nums {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-/* Subtle Terminal Grid Texture */
 .bg-terminal-grid {
   background-size: 32px 32px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    linear-gradient(to right, var(--md-sys-color-outline-variant) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--md-sys-color-outline-variant) 1px, transparent 1px);
+  opacity: 0.15;
 }

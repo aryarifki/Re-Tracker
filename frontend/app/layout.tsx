@@ -6,6 +6,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import RefreshButton from "@/components/layout/RefreshButton";
 import Sidebar from "@/components/layout/Sidebar";
 import SidebarToggle from "@/components/layout/SidebarToggle";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,19 +21,42 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-[#08090C] text-white antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Anti-Flicker Script untuk memastikan warna background termuat instan sebelum render React */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var local = localStorage.getItem('investowl-global-state');
+                  var theme = 'dark';
+                  if (local) {
+                    var parsed = JSON.parse(local);
+                    if (parsed.state && parsed.state.theme) {
+                      theme = parsed.state.theme;
+                    }
+                  }
+                  document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] antialiased transition-colors duration-300`}>
         {/* GLOBAL TOP NAVIGATION */}
-        <nav className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] bg-[#0F1117] sticky top-0 z-40">
+        <nav className="flex items-center justify-between px-4 py-3 border-b border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] sticky top-0 z-40 transition-colors duration-300">
           <div className="flex items-center gap-2.5">
             <SidebarToggle />
             <div className="relative w-5 h-5">
               <Image src="/logo.png" alt="InvestOwl" fill sizes="20px" className="object-contain" priority />
             </div>
-            <span className="text-sm font-bold tracking-[0.15em] uppercase text-orange-400">InvestOwl</span>
+            <span className="text-sm font-bold tracking-[0.15em] uppercase text-[var(--md-sys-color-primary)]">InvestOwl</span>
           </div>
           <div className="flex items-center gap-3">
-             <span className="text-[10px] font-medium text-neutral-500 hidden sm:block">Dashboard Bandarmologi IDX</span>
+             <span className="text-[10px] font-medium text-[var(--md-sys-color-on-surface-variant)] hidden sm:block">Dashboard Bandarmologi IDX</span>
+             <ThemeToggle />
              <RefreshButton />
           </div>
         </nav>

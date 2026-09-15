@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 interface AppState {
+  theme: "dark" | "light";
   activeTicker: string;
   sidebarOpen: boolean;
   
@@ -13,9 +14,10 @@ interface AppState {
   minEvents: number;
   minNetBuy: number;
   
-  // State sinkronisasi Screener
   localWatchlist: string[];
 
+  setTheme: (theme: "dark" | "light") => void;
+  toggleTheme: () => void;
   setActiveTicker: (ticker: string) => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setSummaryDays: (days: number) => void;
@@ -31,6 +33,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
+      theme: "dark", // Default gelap agar pengguna lama tidak kaget
       activeTicker: "BBCA",
       sidebarOpen: false,
       
@@ -42,8 +45,10 @@ export const useAppStore = create<AppState>()(
       minEvents: 5,
       minNetBuy: 0,
       
-      localWatchlist: [], // Default kosong
+      localWatchlist: [],
 
+      setTheme: (theme) => set({ theme }),
+      toggleTheme: () => set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
       setActiveTicker: (ticker) => set({ activeTicker: ticker.toUpperCase() }),
       setSidebarOpen: (isOpen) => set({ sidebarOpen: isOpen }),
       setSummaryDays: (days) => set({ summaryDays: days }),
@@ -58,7 +63,6 @@ export const useAppStore = create<AppState>()(
     {
       name: "investowl-global-state",
       storage: createJSONStorage(() => localStorage),
-      // Mencegah sidebarOpen ikut tersimpan di memori lokal agar menu tidak selalu terbuka otomatis saat web di-refresh
       partialize: (state) => ({ ...state, sidebarOpen: false }), 
     }
   )

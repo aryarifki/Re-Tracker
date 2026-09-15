@@ -4,12 +4,10 @@ import TickerSearch from '@/components/layout/TickerSearch';
 
 export default function ForeignPage() {
   return (
-    <main className="min-h-screen bg-[#08090C] p-4 md:p-6">
+    <main className="min-h-screen bg-[var(--md-sys-color-surface)] p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-4">
-        {/* Kolom Pencarian Global */}
         <TickerSearch />
         
-        {/* Komponen Utama */}
         <ForeignFlowDeepDiveTab />
       </div>
     </main>

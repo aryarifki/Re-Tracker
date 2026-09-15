@@ -33,26 +33,27 @@ function fmtPct(n: number | null): string {
   return (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 }
 
+// MENGGUNAKAN VARIABEL KUSTOM UNTUK KONTRAS TERBAIK (Mode Terang/Gelap)
 function signedColor(n: number): string {
-  return n >= 0 ? "#10b981" : "#f43f5e";
+  return n >= 0 ? "var(--color-positive)" : "var(--color-negative)";
 }
 
 function signalColor(score: number | null): string {
-  if (score === null || score === undefined) return "#94a3b8";
-  if (score >= 2) return "#10b981";
-  if (score === 1) return "#65a30d";
-  if (score === 0) return "#94a3b8";
-  if (score === -1) return "#ea580c";
-  return "#f43f5e";
+  if (score === null || score === undefined) return "var(--md-sys-color-outline)";
+  if (score >= 2) return "var(--color-positive)";
+  if (score === 1) return "var(--color-positive)";
+  if (score === 0) return "var(--md-sys-color-outline)";
+  if (score === -1) return "var(--color-negative)";
+  return "var(--color-negative)";
 }
 
 export function getProfileTextColor(label: string) {
   const l = label.toLowerCase();
-  if (l.includes("foreign smart")) return "#10b981";
+  if (l.includes("foreign smart")) return "var(--color-positive)";
   if (l.includes("local inst")) return "#3b82f6";
   if (l.includes("market maker")) return "#a855f7";
   if (l.includes("speculative")) return "#f59e0b";
-  return "#94a3b8";
+  return "var(--md-sys-color-outline)";
 }
 
 const TABS = ["Overview", "Broker Flow", "Causality", "Validation", "Screener", "Raw Tables"];
@@ -65,12 +66,11 @@ export default function TickerPage() {
   const { 
     activeTicker, setActiveTicker, 
     analysisDate, windowDays, universe, horizon, minEvents,
-    localWatchlist, setLocalWatchlist // <-- Tambahkan setLocalWatchlist di sini
+    localWatchlist, setLocalWatchlist
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState("Overview");
 
-  // Sinkronisasi URL dengan Global Store Zustand
   useEffect(() => {
     if (tickerFromUrl && tickerFromUrl !== activeTicker) {
       setActiveTicker(tickerFromUrl);
@@ -96,26 +96,25 @@ export default function TickerPage() {
   );
 
   if (!activeTicker) {
-    return <div className="min-h-screen bg-[#08090C] text-neutral-100 flex items-center justify-center">No ticker selected</div>;
+    return <div className="min-h-screen bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] flex items-center justify-center transition-colors duration-300">No ticker selected</div>;
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4">
-      {/* Kolom Pencarian Global */}
+    <div className="max-w-7xl mx-auto px-4 py-4 transition-colors duration-300">
       <TickerSearch />
 
-      <div className="mb-4 bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
-        <h1 className="text-lg sm:text-xl font-bold text-white mb-2">Smart Money Dashboard: {activeTicker}</h1>
+      <div className="mb-4 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 transition-colors duration-300">
+        <div className="text-[10px] font-bold text-[var(--md-sys-color-primary)] uppercase tracking-widest mb-0.5">IDX Broker Flow Research</div>
+        <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)] mb-2">Smart Money Dashboard: {activeTicker}</h1>
         <div className="flex flex-wrap gap-2">
-          <span className="text-[10px] font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-full px-2.5 py-1 shadow-sm">
+          <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-2.5 py-1 shadow-sm">
             Window: {data?.window_start || "..."} s/d {data?.analysis_date || "..."}
           </span>
         </div>
       </div>
 
-      {isLoading && <div className="text-neutral-400 text-xs mb-3">Memuat data analisis...</div>}
-      {error && <div className="text-red-400 text-xs mb-3">Gagal mengambil data</div>}
+      {isLoading && <div className="text-[var(--md-sys-color-on-surface-variant)] text-xs mb-3">Memuat data analisis...</div>}
+      {error && <div className="text-[var(--color-negative)] text-xs mb-3">Gagal mengambil data</div>}
 
       {data && !data.error && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
@@ -129,23 +128,22 @@ export default function TickerPage() {
       )}
 
       {data?.alerts?.length > 0 && (
-        <div className="mb-4 bg-amber-950/40 border border-amber-800/50 rounded-xl px-3.5 py-2.5">
+        <div className="mb-4 border rounded-xl px-3.5 py-2.5" style={{ backgroundColor: "var(--md-sys-color-surface-container-high)", borderColor: "var(--color-negative)" }}>
           {data.alerts.map((a: string, i: number) => (
-            <div key={i} className="text-xs text-amber-300">{a}</div>
+            <div key={i} className="text-xs font-medium" style={{ color: "var(--color-negative)" }}>{a}</div>
           ))}
         </div>
       )}
 
       {data?.verdict && (
-        <div className="mb-4 bg-blue-950/30 border-l-4 border-orange-500 rounded-r-xl px-3.5 py-2.5">
-          <div className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">Current read</div>
-          <div className="text-xs text-neutral-200 leading-relaxed">{data.verdict}</div>
+        <div className="mb-4 bg-[var(--md-sys-color-surface-container-high)] border-l-4 border-[var(--md-sys-color-primary)] rounded-r-xl px-3.5 py-2.5">
+          <div className="text-[10px] font-bold text-[var(--md-sys-color-primary)] uppercase tracking-widest mb-0.5">Current read</div>
+          <div className="text-xs text-[var(--md-sys-color-on-surface)] leading-relaxed">{data.verdict}</div>
         </div>
       )}
 
-      {/* Tabs Nav */}
-      <div className="border-b border-neutral-800 mb-4">
-        <div className="flex gap-1 overflow-x-auto">
+      <div className="border-b border-[var(--md-sys-color-outline-variant)] mb-4">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -153,8 +151,8 @@ export default function TickerPage() {
               className={
                 "px-3.5 py-2 text-xs font-semibold whitespace-nowrap rounded-t-lg transition-colors " +
                 (activeTab === tab
-                  ? "text-white bg-neutral-800 border-b-2 border-orange-500"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900")
+                  ? "text-[var(--md-sys-color-on-primary-container)] bg-[var(--md-sys-color-primary-container)] border-b-2 border-[var(--md-sys-color-primary)]"
+                  : "text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-high)]")
               }
             >
               {tab}
@@ -163,8 +161,7 @@ export default function TickerPage() {
         </div>
       </div>
 
-      {/* Tab Views */}
-      <div>
+      <div className="transition-colors duration-300">
         {activeTab === "Overview" && <OverviewTab data={data} isLoading={isLoading} />}
         {activeTab === "Broker Flow" && <BrokerFlowTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />}
         {activeTab === "Causality" && <CausalityTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />}
@@ -183,10 +180,9 @@ export default function TickerPage() {
             universeMode={universe}
             analysisDate={analysisDate}
             windowDays={windowDays}
-            customTickers={universe === "watchlist" ? localWatchlist : []} // <-- Diperbaiki di sini
+            customTickers={universe === "watchlist" ? localWatchlist : []}
           />
         )}
-
         {activeTab === "Raw Tables" && (
           <RawTablesTab ticker={activeTicker} analysisDate={analysisDate} windowDays={windowDays} />
         )}
@@ -196,25 +192,25 @@ export default function TickerPage() {
 }
 
 // =========================================================================
-// BAWAAN ASLI ANDA: KOMPONEN METRIC & OVERVIEW TAB 
+// KOMPONEN METRIC & OVERVIEW TAB 
 // =========================================================================
 
 function MetricCard({ label, value, note, tone, accent }: { label: string; value: string; note: string; tone: number | null; accent?: string }) {
-  let color = "#94a3b8";
+  let color = "var(--md-sys-color-outline)";
   if (accent) color = accent;
   else if (tone !== null && tone !== undefined) color = signedColor(Number(tone));
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 border-l-4" style={{ borderLeftColor: color }}>
-      <div className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">{label}</div>
+    <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3 border-l-4 transition-colors duration-300" style={{ borderLeftColor: color }}>
+      <div className="text-[9px] font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider mb-0.5">{label}</div>
       <div className="text-sm sm:text-base font-bold" style={{ color }}>{value}</div>
-      <div className="text-[10px] text-neutral-500 truncate mt-0.5">{note}</div>
+      <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">{note}</div>
     </div>
   );
 }
 
 function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
-  if (isLoading) return <div className="text-neutral-400 text-xs">Loading overview...</div>;
-  if (!data || data.error) return <div className="text-red-400 text-xs">{data?.error || "No data"}</div>;
+  if (isLoading) return <div className="text-[var(--md-sys-color-on-surface-variant)] text-xs">Loading overview...</div>;
+  if (!data || data.error) return <div className="text-[var(--color-negative)] text-xs">{data?.error || "No data"}</div>;
 
   const chartData = (data.price_chart || []).map((p: any) => {
     const sig = (data.signal_overlay || []).find((s: any) => s.date === p.date);
@@ -225,21 +221,21 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
     <div className="space-y-4">
       {/* 1. Price Chart + Top Brokers */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-xs sm:text-sm font-bold text-neutral-200 mb-3">Price, Volume, and Signal Context</h3>
+        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 transition-colors duration-300">
+          <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] mb-3">Price, Volume, and Signal Context</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
-                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" domain={["auto", "auto"]} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-outline-variant)" opacity={0.5} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" domain={["auto", "auto"]} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" />
                 <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
-                  labelStyle={{ color: "#94a3b8" }}
+                  contentStyle={{ background: "var(--md-sys-color-surface-container-highest)", border: "1px solid var(--md-sys-color-outline-variant)", borderRadius: "8px", fontSize: "11px", color: "var(--md-sys-color-on-surface)" }}
+                  labelStyle={{ color: "var(--md-sys-color-on-surface-variant)" }}
                   formatter={(value: any, name: any) => [fmtRp(Number(value)), String(name)]}
                 />
-                <Bar yAxisId="right" dataKey="volume" fill="#334155" opacity={0.3} />
+                <Bar yAxisId="right" dataKey="volume" fill="var(--md-sys-color-outline)" opacity={0.3} />
                 <Line yAxisId="left" type="monotone" dataKey="close" stroke="#f59e0b" strokeWidth={2} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -247,13 +243,13 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-            <h3 className="text-xs font-bold text-neutral-200 mb-1">Top Brokers</h3>
-            <p className="text-[10px] text-neutral-500 mb-2">Net buy/sell pada tanggal analisis</p>
+          <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 transition-colors duration-300">
+            <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1">Top Brokers</h3>
+            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] mb-2">Net buy/sell pada tanggal analisis</p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-neutral-500 border-b border-neutral-800 text-[10px]">
+                  <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] text-[10px]">
                     <th className="text-left py-1">Side</th>
                     <th className="text-left py-1">Broker</th>
                     <th className="text-left py-1">Type</th>
@@ -263,12 +259,12 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
                 </thead>
                 <tbody>
                   {(data.broker_summary || []).map((row: any, i: number) => (
-                    <tr key={i} className="border-b border-neutral-800/50">
-                      <td className="py-1" style={{ color: row.side === "Buy" ? "#10b981" : "#f43f5e" }}>{row.side}</td>
-                      <td className="py-1 text-neutral-200 font-mono">{row.broker}</td>
-                      <td className="py-1 text-neutral-400">{row.type}</td>
-                      <td className="py-1 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
-                      <td className="py-1 pl-2 text-neutral-400 font-mono">{row.spark}</td>
+                    <tr key={i} className="border-b border-[var(--md-sys-color-outline-variant)]/50">
+                      <td className="py-1 font-medium" style={{ color: row.side === "Buy" ? "var(--color-positive)" : "var(--color-negative)" }}>{row.side}</td>
+                      <td className="py-1 text-[var(--md-sys-color-on-surface)] font-mono">{row.broker}</td>
+                      <td className="py-1 text-[var(--md-sys-color-on-surface-variant)]">{row.type}</td>
+                      <td className="py-1 text-right font-mono font-medium" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                      <td className="py-1 pl-2 text-[var(--md-sys-color-on-surface-variant)] font-mono">{row.spark}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -276,21 +272,21 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
             </div>
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-            <h3 className="text-xs font-bold text-neutral-200 mb-1">Price Performance</h3>
+          <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 transition-colors duration-300">
+            <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1">Price Performance</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-neutral-500 border-b border-neutral-800 text-[10px]">
+                  <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] text-[10px]">
                     <th className="text-left py-1">Period</th>
                     <th className="text-right py-1">Return</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(data.price_performance || []).map((row: any, i: number) => (
-                    <tr key={i} className="border-b border-neutral-800/50">
-                      <td className="py-1 text-neutral-300">{row.period}</td>
-                      <td className="py-1 text-right font-mono" style={{ color: signedColor(row.value) }}>{fmtPct(row.value)}</td>
+                    <tr key={i} className="border-b border-[var(--md-sys-color-outline-variant)]/50">
+                      <td className="py-1 text-[var(--md-sys-color-on-surface)]">{row.period}</td>
+                      <td className="py-1 text-right font-mono font-medium" style={{ color: signedColor(row.value) }}>{fmtPct(row.value)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -299,44 +295,42 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
           </div>
         </div>
       </div>
-
       {/* 2. Smart Flow + Profile Net Flow */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">Smart-Money Daily Flow</h3>
+        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 transition-colors duration-300">
+          <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] mb-3">Smart-Money Daily Flow</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data.smart_daily || []} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
-                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#64748b" }} stroke="#334155" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-outline-variant)" opacity={0.5} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" />
                 <Tooltip
-                  contentStyle={{ background: "#171717", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
-                  labelStyle={{ color: "#94a3b8" }}
+                  contentStyle={{ background: "var(--md-sys-color-surface-container-highest)", border: "1px solid var(--md-sys-color-outline-variant)", borderRadius: "8px", fontSize: "11px", color: "var(--md-sys-color-on-surface)" }}
+                  labelStyle={{ color: "var(--md-sys-color-on-surface-variant)" }}
                   formatter={((value: any, name: any) => [fmtRp(Number(value)), String(name)]) as any}
                 />
                 <Bar
                   yAxisId="left"
                   dataKey="smart_net"
-                  fill="#10b981"
                   shape={(props: any) => {
                     const { x, y, width, height, payload } = props;
-                    const color = payload.smart_net >= 0 ? "#10b981" : "#f43f5e";
+                    const color = payload.smart_net >= 0 ? "var(--color-positive)" : "var(--color-negative)";
                     return <rect x={x} y={y} width={width} height={height} fill={color} opacity={0.8} rx={2} />;
                   }}
                 />
                 <Line yAxisId="right" type="monotone" dataKey="cumulative_net" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                <ReferenceLine yAxisId="left" y={0} stroke="#64748b" strokeWidth={1} />
+                <ReferenceLine yAxisId="left" y={0} stroke="var(--md-sys-color-outline)" strokeWidth={1} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-neutral-200 mb-3">Profile Net Flow</h3>
+        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 transition-colors duration-300">
+          <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] mb-3">Profile Net Flow</h3>
           {(data.profile_flow || []).length === 0 ? (
-            <p className="text-xs text-neutral-500">No profile flow for this window.</p>
+            <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">No profile flow for this window.</p>
           ) : (
             <div className="space-y-3">
               {(data.profile_flow || []).map((row: any, i: number) => {
@@ -349,7 +343,7 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
                       <span className="font-semibold" style={{ color: getProfileTextColor(row.label) }}>{row.label}</span>
                       <span className="font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
                     </div>
-                    <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
                     </div>
                   </div>
@@ -361,15 +355,15 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
       </div>
       
       {/* 3. Broker Detail by Profile */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-        <h3 className="text-sm font-bold text-neutral-200 mb-3">Broker Detail by Profile</h3>
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 transition-colors duration-300">
+        <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] mb-3">Broker Detail by Profile</h3>
         {(data.profile_broker_detail || []).length === 0 ? (
-          <p className="text-xs text-neutral-500">No broker detail for this window.</p>
+          <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">No broker detail for this window.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-neutral-500 border-b border-neutral-800">
+                <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)]">
                   <th className="text-left py-1.5 pr-2">Profile</th>
                   <th className="text-left py-1.5 pr-2">Broker</th>
                   <th className="text-left py-1.5 pr-2">Type</th>
@@ -383,16 +377,16 @@ function OverviewTab({ data, isLoading }: { data: any; isLoading: boolean }) {
               </thead>
               <tbody>
                 {(data.profile_broker_detail || []).map((row: any, i: number) => (
-                  <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                  <tr key={i} className="border-b border-[var(--md-sys-color-outline-variant)]/50 hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors">
                     <td className="py-1.5 pr-2 font-semibold" style={{ color: getProfileTextColor(row.profile) }}>{row.profile}</td>
-                    <td className="py-1.5 pr-2 text-neutral-200 font-mono">{row.broker}</td>
-                    <td className="py-1.5 pr-2 text-neutral-400">{row.type}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-emerald-400">{fmtRp(row.buy)}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-red-400">{fmtRp(row.sell)}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.freq?.toLocaleString("id-ID") || 0}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono text-neutral-400">{row.days || 0}</td>
-                    <td className="py-1.5 text-right font-mono text-neutral-400">{fmtRp(row.avg_value_tx)}</td>
+                    <td className="py-1.5 pr-2 text-[var(--md-sys-color-on-surface)] font-mono">{row.broker}</td>
+                    <td className="py-1.5 pr-2 text-[var(--md-sys-color-on-surface-variant)]">{row.type}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono font-medium" style={{ color: "var(--color-positive)" }}>{fmtRp(row.buy)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono font-medium" style={{ color: "var(--color-negative)" }}>{fmtRp(row.sell)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono font-bold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.freq?.toLocaleString("id-ID") || 0}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.days || 0}</td>
+                    <td className="py-1.5 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{fmtRp(row.avg_value_tx)}</td>
                   </tr>
                 ))}
               </tbody>
