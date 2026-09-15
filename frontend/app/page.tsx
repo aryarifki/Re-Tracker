@@ -108,13 +108,11 @@ export default function HomeMobile() {
 
   return (
     <div className="min-h-[100dvh] bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] selection:bg-[var(--md-sys-color-primary-container)] transition-colors duration-300">
-      {/* DIUBAH DARI max-w-xl MENJADI max-w-7xl AGAR RESPONSIF DI DESKTOP */}
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-6">
         
         <header className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)] pb-3">
           <div>
-              <h1 className="text-xl font-semibold text-[var(--md-sys-color-on-surface)] tracking-tight leading-none">IDX Terminal</h1>
-              <div className="text-[10px] font-mono text-[var(--md-sys-color-on-surface-variant)] mt-1.5 uppercase tracking-wider">System Dashboard</div>
+              <h1 className="text-xl font-semibold text-[var(--md-sys-color-on-surface)] tracking-tight leading-none">HOME</h1>
           </div>
           <div className="text-right flex flex-col items-end">
               <div className="text-[9px] font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider mb-1">Status</div>
@@ -129,10 +127,10 @@ export default function HomeMobile() {
            <div className="absolute top-0 left-0 w-full h-[2px] bg-[var(--md-sys-color-primary)] opacity-80"></div>
            <div className="flex items-center gap-2 mb-3">
                <Icon icon="ph:info-duotone" className="text-[var(--md-sys-color-primary)]" width="18" />
-               <h2 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">Quant Flow Architecture</h2>
+               <h2 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">The Investowl System</h2>
            </div>
            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-relaxed mb-4 text-justify">
-             Platform analisis kuantitatif kelas institusional untuk Bursa Efek Indonesia. Dirancang untuk melacak jejak <i>Smart Money</i>, kausalitas broker, dan memvalidasi rekam jejak akumulasi secara historis guna mengidentifikasi fase awal sebelum <i>price breakout</i>.
+             Platform terminal analitik saham komprehensif. Dirancang secara presisi untuk memonitor aliran dana asing (<i>Foreign Flow</i>), membedah jejak transaksi institusi (<i>Smart Money</i>), serta memvalidasi momentum dan kausalitas pergerakan harga di Bursa Efek Indonesia.
            </p>
            
            <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)] pt-3 mt-1">
@@ -210,7 +208,6 @@ export default function HomeMobile() {
             </div>
           )}
 
-          {/* GRID RESPONSIVE: Ditambahkan sm:grid-cols-2 lg:grid-cols-3 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {!loaded ? (
                 Array.from({ length: 3 }).map((_, i) => (
