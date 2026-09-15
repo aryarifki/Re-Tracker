@@ -770,7 +770,7 @@ def ticker_detail(
         dates = sorted(activity_df[activity_df["ticker"] == ticker]["date"].dt.date.unique().tolist())
         analysis_ts = pd.Timestamp(max(dates)) if dates else pd.Timestamp.now()
 
-    cache_key = f"{ticker}|{analysis_ts.date()}|{window_days}|{horizon}"
+    cache_key = f"{ticker}|{analysis_ts.date()}|{window_days}|{horizon}|v2"
     now = _time.time()
     cached = _DETAIL_CACHE.get(cache_key)
     if cached is not None and (now - cached["ts"]) < 300:
@@ -882,8 +882,23 @@ def ticker_detail(
                 "score": float(row["bandar_signal_score"]) if pd.notna(row["bandar_signal_score"]) else None,
             })
 
+    # === PENAMBAHAN DATA COMPANY UNTUK DASHBOARD ===
+    company_data = {"name": "Bursa Efek Indonesia", "group": "Sektor Perusahaan"}
+    try:
+        from sqlalchemy import text
+        with storage.engine.connect() as conn:
+            query = text("SELECT company_name, group_name FROM analytics_foreign_flow WHERE ticker = :ticker LIMIT 1")
+            row = conn.execute(query, {"ticker": ticker}).fetchone()
+            if row:
+                company_data["name"] = row[0] or company_data["name"]
+                company_data["group"] = row[1] or company_data["group"]
+    except Exception:
+        pass
+    # ===============================================
+
     result = _clean_detail({
         "ticker": ticker,
+        "company": company_data,
         "analysis_date": str(analysis_ts.date()),
         "window_start": str(window_start.date()),
         "window_days": window_days,
