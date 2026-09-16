@@ -13,25 +13,26 @@ export default function VARChart({ irfData }: { irfData: any }) {
     val + (val - lowerBound[i])
   );
   const bandDifference = upperBound.map((up: number, i: number) => up - lowerBound[i]);
+  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute('data-theme') === 'dark';
 
   const option = {
     tooltip: { 
       trigger: 'axis',
-      backgroundColor: '#0F1117',
-      borderColor: 'rgba(255,255,255,0.1)',
-      textStyle: { color: '#e5e5e5', fontSize: 11 }
+      backgroundColor: isDark ? '#1C1916' : '#FFFFFF',
+      borderColor: isDark ? '#52443C' : '#D7C2B4',
+      textStyle: { color: isDark ? '#EBE0D9' : '#1E1A17', fontSize: 11 }
     },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
     xAxis: { 
       type: 'category', 
       boundaryGap: false, 
       data: xAxisData,
-      axisLabel: { color: '#737373', fontSize: 10 }
+      axisLabel: { color: isDark ? '#D7C2B4' : '#4E453F', fontSize: 10 }
     },
     yAxis: { 
       type: 'value',
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-      axisLabel: { color: '#737373', fontSize: 10 }
+      splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' } },
+      axisLabel: { color: isDark ? '#D7C2B4' : '#4E453F', fontSize: 10 }
     },
     series: [
       {
@@ -47,7 +48,7 @@ export default function VARChart({ irfData }: { irfData: any }) {
         type: 'line',
         data: bandDifference,
         lineStyle: { opacity: 0 },
-        areaStyle: { color: '#3b82f6', opacity: 0.1 }, // Transparansi sangat soft (0.1)
+        areaStyle: { color: '#3b82f6', opacity: 0.1 }, 
         stack: 'confidence',
         symbol: 'none'
       },
