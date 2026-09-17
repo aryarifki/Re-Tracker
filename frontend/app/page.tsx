@@ -14,22 +14,22 @@ function WatchlistFetcher({ ticker, onRemove }: { ticker: string; onRemove?: (t:
   const { data, isLoading, error } = useSWR(`/api/bandar/detail/${ticker}?window_days=20`, fetcher, { revalidateOnFocus: false });
 
   if (isLoading) return (
-     <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3 h-[84px] flex flex-col justify-between animate-pulse shadow-sm">
+     <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-4 h-[96px] flex flex-col justify-between animate-pulse shadow-sm">
         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="w-12 h-5 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
-                <div className="w-20 h-4 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
+            <div className="flex items-center gap-3">
+                <div className="w-12 h-6 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
+                <div className="w-24 h-4 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
             </div>
-            <div className="w-16 h-6 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
+            <div className="w-16 h-7 bg-[var(--md-sys-color-surface-container-highest)] rounded-full"></div>
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/50 pt-2">
-            <div className="w-10 h-3 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
-            <div className="w-12 h-3 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
-            <div className="w-12 h-3 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
+        <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/60 pt-3">
+            <div className="w-12 h-3.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
+            <div className="w-14 h-3.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
+            <div className="w-14 h-3.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
         </div>
      </div>
   );
-  
+
   if (error || data?.error) return null;
 
   const item = {
@@ -98,149 +98,159 @@ export default function HomeMobile() {
 
   if (!booted) {
     return (
-      <InvestOwlLoader 
-        title="INITIALIZING SYSTEM" 
-        subtitle="Loading InvestOwl Engine..." 
-        fullScreen={true} 
+      <InvestOwlLoader
+        title="INITIALIZING SYSTEM"
+        subtitle="Loading InvestOwl Engine..."
+        fullScreen={true}
       />
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] selection:bg-[var(--md-sys-color-primary-container)] transition-colors duration-300">
-      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-6">
-        
-        <header className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)] pb-3">
+    <div className="min-h-[100dvh] bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] selection:bg-[var(--md-sys-color-primary-container)] transition-colors duration-300 animate-fade-in">
+      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-8 pb-8">
+
+        {/* HEADER SECTION */}
+        <header className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)] pb-4">
           <div>
-              <h1 className="text-xl font-semibold text-[var(--md-sys-color-on-surface)] tracking-tight leading-none">HOME</h1>
+              <h1 className="text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight leading-none">HOME</h1>
           </div>
           <div className="text-right flex flex-col items-end">
-              <div className="text-[9px] font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider mb-1">Status</div>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono border px-2 py-1 rounded" style={{ color: "var(--color-positive)", borderColor: "var(--color-positive)", backgroundColor: "var(--md-sys-color-surface-container)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "var(--color-positive)" }}></span>
-                  ONLINE <span className="text-[var(--md-sys-color-on-surface-variant)] mx-0.5">•</span> {latestDate}
+              <div className="text-[10px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-1.5">System Status</div>
+              <div className="flex items-center gap-2 text-[10px] font-bold font-mono border px-3 py-1.5 rounded-full shadow-sm" style={{ color: "var(--color-positive)", borderColor: "var(--color-positive)", backgroundColor: "var(--md-sys-color-surface-container)" }}>
+                  <span className="w-2 h-2 rounded-full animate-pulse shadow-sm" style={{ backgroundColor: "var(--color-positive)" }}></span>
+                  ONLINE <span className="text-[var(--md-sys-color-on-surface-variant)] opacity-70 mx-0.5">•</span> {latestDate}
               </div>
           </div>
         </header>
 
-        <section className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 relative overflow-hidden shadow-sm transition-colors duration-300 max-w-xl">
-           <div className="absolute top-0 left-0 w-full h-[2px] bg-[var(--md-sys-color-primary)] opacity-80"></div>
-           <div className="flex items-center gap-2 mb-3">
-               <Icon icon="ph:info-duotone" className="text-[var(--md-sys-color-primary)]" width="18" />
-               <h2 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">The Investowl System</h2>
+        {/* SYSTEM INFO CARD */}
+        <section className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-6 sm:p-8 relative overflow-hidden shadow-sm transition-colors duration-300">
+           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[var(--md-sys-color-primary)] to-[var(--md-sys-color-tertiary)] opacity-80"></div>
+           
+           <div className="flex items-center gap-3 mb-4">
+               <div className="p-2 rounded-xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] shadow-sm">
+                 <Icon icon="ph:info-duotone" width="22" />
+               </div>
+               <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">The Investowl System</h2>
            </div>
-           <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-relaxed mb-4 text-justify">
+           
+           <p className="text-xs sm:text-sm font-medium text-[var(--md-sys-color-on-surface-variant)] leading-relaxed mb-6 text-justify">
              Platform terminal analitik saham komprehensif. Dirancang secara presisi untuk memonitor aliran dana asing (<i>Foreign Flow</i>), membedah jejak transaksi institusi (<i>Smart Money</i>), serta memvalidasi momentum dan kausalitas pergerakan harga di Bursa Efek Indonesia.
            </p>
-           
-           <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)] pt-3 mt-1">
-             <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--md-sys-color-on-surface-variant)]">
-               <Icon icon="ph:terminal-duotone" width="14" /> Author: <span className="text-[var(--md-sys-color-on-surface)] font-semibold">arya rifky</span>
+
+           <div className="flex flex-wrap gap-4 items-center justify-between border-t border-[var(--md-sys-color-outline-variant)] pt-5">
+             <div className="flex items-center gap-2 text-xs font-mono font-medium text-[var(--md-sys-color-on-surface-variant)]">
+               <Icon icon="ph:terminal-duotone" width="16" /> Author: <span className="text-[var(--md-sys-color-on-surface)] font-bold">arya rifky</span>
              </div>
-             <a 
-               href="https://www.instagram.com/rifqiaarya?igsi=bzJzbzZhZW1qanFr" 
-               target="_blank" 
-               rel="noopener noreferrer" 
-               className="flex items-center gap-1.5 text-[10px] font-mono hover:opacity-80 transition-opacity px-2.5 py-1 rounded-md border"
+             <a
+               href="https://www.instagram.com/rifqiaarya?igsi=bzJzbzZhZW1qanFr"
+               target="_blank"
+               rel="noopener noreferrer"
+               className="flex items-center gap-2 text-[10px] sm:text-xs font-bold font-mono hover:opacity-80 transition-opacity px-4 py-2 rounded-full border shadow-sm"
                style={{ color: "var(--color-negative)", borderColor: "var(--color-negative)", backgroundColor: "var(--md-sys-color-surface)" }}
              >
-               <Icon icon="ph:instagram-logo-duotone" width="14" /> @rifqiaarya
+               <Icon icon="ph:instagram-logo-duotone" width="16" /> @rifqiaarya
              </a>
            </div>
         </section>
 
-        <section className="space-y-4 pt-1">
-          <div className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)] pb-3">
-            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
-               <Icon icon="ph:binoculars-duotone" className="text-[var(--md-sys-color-on-surface-variant)]" width="18" />
+        {/* WATCHLIST SECTION */}
+        <section className="space-y-5">
+          <div className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)] pb-4">
+            <h3 className="text-base sm:text-lg font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight flex items-center gap-2.5">
+               <Icon icon="ph:binoculars-duotone" className="text-[var(--md-sys-color-primary)]" width="24" />
                Active Watchlist
-               <span className="text-[10px] font-mono text-[var(--md-sys-color-on-surface-variant)] ml-1 bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] px-1.5 py-0.5 rounded">
+               <span className="text-[10px] font-bold font-mono text-[var(--md-sys-color-on-surface)] ml-1 bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] px-2.5 py-1 rounded-full shadow-sm">
                  {myList.length} ASSETS
                </span>
             </h3>
             <button
               onClick={() => setEditing(!editing)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors active:scale-[0.98] ${
+              className={`flex items-center gap-2 text-xs sm:text-sm font-bold px-4 py-2 rounded-full border transition-all active:scale-[0.98] shadow-sm ${
                 editing
                   ? "bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] border-[var(--md-sys-color-primary)]"
-                  : "bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-[var(--md-sys-color-outline-variant)] hover:text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-high)]"
+                  : "bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] border-[var(--md-sys-color-outline-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]"
               }`}
             >
-              <Icon icon={editing ? "ph:check-bold" : "ph:pencil-simple-duotone"} />
+              <Icon icon={editing ? "ph:check-bold" : "ph:pencil-simple-duotone"} width="16" />
               {editing ? "Done" : "Edit List"}
             </button>
           </div>
 
+          {/* EDITING PANEL */}
           {editing && (
-            <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-primary)] rounded-xl p-4 space-y-3 shadow-md transition-colors max-w-xl">
+            <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-primary)] rounded-[24px] p-5 sm:p-6 space-y-4 shadow-sm transition-colors animate-fade-in">
               <div className="relative">
-                  <Icon icon="ph:magnifying-glass" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--md-sys-color-primary)]" width="16" />
+                  <Icon icon="ph:magnifying-glass-bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--md-sys-color-primary)]" width="18" />
                   <input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search ticker (e.g. BBCA)..."
-                      className="w-full bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-lg pl-9 pr-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] uppercase font-mono placeholder:normal-case placeholder:font-sans transition-colors"
+                      className="w-full bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] rounded-full pl-11 pr-4 py-3 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] uppercase font-mono placeholder:normal-case placeholder:font-sans placeholder:font-medium transition-colors shadow-inner"
                   />
               </div>
-              
+
               {query && (
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2.5 pt-2">
                   {searchResults.map((t: string) => {
                       const added = myList.includes(t);
                       return (
                       <button
                           key={t}
                           onClick={() => addTicker(t)}
-                          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border font-bold font-mono transition-all active:scale-[0.98] ${
+                          className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border font-extrabold font-mono transition-all active:scale-[0.98] shadow-sm ${
                           added
                               ? "bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] border-[var(--md-sys-color-primary)] opacity-60 cursor-default"
                               : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface)] border-[var(--md-sys-color-outline-variant)] hover:border-[var(--md-sys-color-primary)] hover:text-[var(--md-sys-color-primary)]"
                           }`}
                       >
-                          <Icon icon={added ? "ph:check-bold" : "ph:plus-bold"} width="12" />
+                          <Icon icon={added ? "ph:check-bold" : "ph:plus-bold"} width="14" />
                           {t}
                       </button>
                       );
                   })}
-                  {searchResults.length === 0 && <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] italic">No tickers found.</span>}
+                  {searchResults.length === 0 && <span className="text-sm font-medium text-[var(--md-sys-color-on-surface-variant)] italic px-2">No tickers found.</span>}
                   </div>
               )}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* WATCHLIST GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
               {!loaded ? (
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3 h-[84px] flex flex-col justify-between animate-pulse shadow-sm">
+                  <div key={i} className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-4 h-[96px] flex flex-col justify-between animate-pulse shadow-sm">
                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                              <div className="w-12 h-5 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
-                              <div className="w-20 h-4 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
+                          <div className="flex items-center gap-3">
+                              <div className="w-12 h-6 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
+                              <div className="w-24 h-4 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
                           </div>
-                          <div className="w-16 h-6 bg-[var(--md-sys-color-surface-container-highest)] rounded-md"></div>
+                          <div className="w-16 h-7 bg-[var(--md-sys-color-surface-container-highest)] rounded-full"></div>
                       </div>
-                      <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/50 pt-2">
-                          <div className="w-10 h-3 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
-                          <div className="w-12 h-3 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
-                          <div className="w-12 h-3 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
+                      <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/60 pt-3">
+                          <div className="w-12 h-3.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
+                          <div className="w-14 h-3.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
+                          <div className="w-14 h-3.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-sm"></div>
                       </div>
                   </div>
                 ))
               ) : (
                 myList.map((ticker) => (
-                   <WatchlistFetcher 
-                      key={ticker} 
-                      ticker={ticker} 
-                      onRemove={editing ? removeTicker : undefined} 
+                   <WatchlistFetcher
+                      key={ticker}
+                      ticker={ticker}
+                      onRemove={editing ? removeTicker : undefined}
                    />
                 ))
               )}
           </div>
 
           {loaded && myList.length === 0 && (
-            <div className="py-10 flex flex-col items-center justify-center text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl transition-colors max-w-xl">
-               <Icon icon="ph:ghost-duotone" width="32" className="mb-2 opacity-50" />
-               <p className="text-xs">Your watchlist is empty.</p>
+            <div className="py-12 flex flex-col items-center justify-center text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] shadow-sm transition-colors">
+               <Icon icon="ph:ghost-duotone" width="48" className="mb-3 opacity-60" />
+               <p className="text-sm font-bold tracking-wide">Your watchlist is empty.</p>
+               <p className="text-xs font-medium mt-1 opacity-70">Click "Edit List" to add some assets.</p>
             </div>
           )}
         </section>
