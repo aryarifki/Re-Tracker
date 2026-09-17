@@ -108,8 +108,8 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
     }
   };
 
-  if (isLoading && !data) return <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] rounded-xl flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)]"><Icon icon="ph:spinner-gap-duotone" className="animate-spin text-[var(--md-sys-color-primary)]" width="20" /> <span className="text-sm font-medium">Extracting broker flow data...</span></div>;
-  if (error) return <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-[var(--color-negative)] text-sm rounded-xl">Error processing data.</div>;
+  if (isLoading && !data) return <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container-low)] rounded-[24px] flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)] shadow-sm animate-pulse"><Icon icon="ph:spinner-gap-bold" className="animate-spin text-[var(--md-sys-color-primary)]" width="24" /> <span className="text-sm font-bold tracking-wide">Extracting broker flow data...</span></div>;
+  if (error) return <div className="p-5 bg-[var(--md-sys-color-error-container)] border border-[var(--md-sys-color-error)] text-[var(--md-sys-color-on-error-container)] font-bold text-sm rounded-[24px] shadow-sm">Error processing data.</div>;
 
   const chartData = data?.compare_chart || [];
   const dist = data?.distribution || { buyers: [], sellers: [], edges: [], dist_start: "-", dist_end: "-" };
@@ -121,13 +121,13 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
   const filteredProfileDetail = profileFilter === "all" ? profileDetail : profileDetail.filter((r: any) => r.profile_key === profileFilter);
 
   return (
-    <div className={`space-y-6 transition-opacity duration-300 ${isValidating ? "opacity-70" : "opacity-100"}`}>
+    <div className={`space-y-6 sm:space-y-8 transition-opacity duration-300 ${isValidating ? "opacity-70" : "opacity-100"} animate-fade-in`}>
       
       {/* ====== CHART CONTROLS & BROKER SELECTION ====== */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
             <select 
-              className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-1.5 text-sm text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] min-w-[120px]"
+              className="bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm cursor-pointer"
               onChange={(e) => {
                 if (e.target.value) toggleCode(e.target.value);
                 e.target.value = ""; 
@@ -141,38 +141,38 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
             
             <div className="flex flex-wrap gap-2">
               {selectedCodes.map((code: string) => (
-                <div key={code} className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-primary)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-sm font-semibold tracking-wide">
+                <div key={code} className="flex items-center gap-2 pl-3.5 pr-1.5 py-1.5 bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] border border-[var(--md-sys-color-primary)] rounded-full text-sm font-extrabold tracking-wide shadow-sm">
                   {code}
-                  <button onClick={() => toggleCode(code)} className="hover:text-[var(--color-negative)] transition-colors p-0.5 rounded-md"><Icon icon="ph:x-bold" width="12" /></button>
+                  <button onClick={() => toggleCode(code)} className="bg-[var(--md-sys-color-surface)]/20 hover:bg-[var(--color-negative)] hover:text-white transition-colors p-1 rounded-full"><Icon icon="ph:x-bold" width="14" /></button>
                 </div>
               ))}
             </div>
         </div>
 
-        <div>
-            <label className="block text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)] mb-1.5">Flow mode</label>
-            <select className="w-full md:w-64 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)]" value={flowMode} onChange={(e) => setFlowMode(e.target.value)}>
+        <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] p-4 sm:p-5 rounded-[24px] shadow-sm">
+            <label className="block text-[10px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-2.5">Flow mode</label>
+            <select className="w-full md:w-72 bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm cursor-pointer" value={flowMode} onChange={(e) => setFlowMode(e.target.value)}>
                 <option value="Cumulative">Cumulative</option>
                 <option value="Daily">Daily</option>
             </select>
-            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] mt-1.5">Cumulative mode sums broker net flow across the selected broker window. Daily mode shows each date separately.</p>
+            <p className="text-xs font-medium text-[var(--md-sys-color-on-surface-variant)] mt-3">Cumulative mode sums broker net flow across the selected broker window. Daily mode shows each date separately.</p>
         </div>
       </div>
 
       {/* ====== BROKER FLOW COMPARISON CHART ====== */}
       {selectedCodes.length > 0 && (
-        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm transition-colors duration-300">
-          <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] mb-4">Broker Flow Comparison, {flowMode} in Selected Window</h3>
+        <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-5 sm:p-6 shadow-sm transition-colors duration-300">
+          <h3 className="text-sm sm:text-base font-extrabold text-[var(--md-sys-color-on-surface)] mb-5 tracking-tight">Broker Flow Comparison <span className="opacity-60 text-[var(--md-sys-color-on-surface-variant)] text-sm font-semibold ml-1">({flowMode})</span></h3>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--md-sys-color-outline-variant)" strokeOpacity={0.5} vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" axisLine={false} tickLine={false} dy={10} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)" }} stroke="var(--md-sys-color-outline-variant)" axisLine={false} tickLine={false} label={{ value: 'Cumulative Net Value, Rp B', angle: -90, position: 'insideLeft', fill: 'var(--md-sys-color-on-surface-variant)', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "var(--md-sys-color-surface-container-highest)", border: "1px solid var(--md-sys-color-outline-variant)", borderRadius: "8px", fontSize: "12px", color: "var(--md-sys-color-on-surface)" }} labelStyle={{ color: "var(--md-sys-color-on-surface-variant)", marginBottom: "4px" }} formatter={(value: any, name: any) => ["Rp " + Number(value).toFixed(2) + " B", name]} />
-                <ReferenceLine y={0} stroke="var(--md-sys-color-outline)" strokeWidth={1} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)", fontWeight: 600 }} stroke="var(--md-sys-color-outline-variant)" axisLine={false} tickLine={false} dy={10} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--md-sys-color-on-surface-variant)", fontWeight: 600 }} stroke="var(--md-sys-color-outline-variant)" axisLine={false} tickLine={false} label={{ value: 'Cumulative Net (Rp B)', angle: -90, position: 'insideLeft', fill: 'var(--md-sys-color-on-surface-variant)', fontSize: 10, fontWeight: 700 }} />
+                <Tooltip contentStyle={{ background: "var(--md-sys-color-surface-container-highest)", border: "1px solid var(--md-sys-color-outline-variant)", borderRadius: "16px", fontSize: "12px", color: "var(--md-sys-color-on-surface)", fontWeight: 700, boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} labelStyle={{ color: "var(--md-sys-color-on-surface-variant)", fontWeight: 800, marginBottom: "4px" }} formatter={(value: any, name: any) => ["Rp " + Number(value).toFixed(2) + " B", name]} />
+                <ReferenceLine y={0} stroke="var(--md-sys-color-outline)" strokeWidth={1.5} />
                 {selectedCodes.map((code: string, i: number) => (
-                  <Line key={code} type="monotone" dataKey={code} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 5, stroke: "var(--md-sys-color-surface)", strokeWidth: 2 }} connectNulls />
+                  <Line key={code} type="monotone" dataKey={code} stroke={COLORS[i % COLORS.length]} strokeWidth={3} dot={{ r: 3, strokeWidth: 1 }} activeDot={{ r: 6, stroke: "var(--md-sys-color-surface)", strokeWidth: 2 }} connectNulls />
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -181,38 +181,38 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
       )}
 
       {/* ====== BROKER PROFILE FLOW ====== */}
-      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm transition-colors duration-300">
-        <div className="flex items-center gap-2 mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3">
-            <Icon icon="ph:link-bold" className="text-[var(--md-sys-color-on-surface-variant)]" width="16" />
-            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)]">Broker Profile Flow</h3>
+      <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-5 sm:p-6 shadow-sm transition-colors duration-300">
+        <div className="flex items-center gap-2 mb-5 border-b border-[var(--md-sys-color-outline-variant)] pb-3">
+            <Icon icon="ph:link-bold" className="text-[var(--md-sys-color-primary)]" width="20" />
+            <h3 className="text-sm sm:text-base font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">Broker Profile Flow</h3>
         </div>
         
         {profileFlow.length === 0 ? (
-          <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] text-center py-4">No profile flow detected.</p>
+          <p className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] text-center py-6">No profile flow detected.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             {profileFlow.map((row: any, i: number) => {
                 const maxAbs = Math.max(...profileFlow.map((r: any) => Math.abs(r.net)), 1);
                 const width = Math.max(3, (Math.abs(row.net) / maxAbs) * 100);
                 return (
-                <div key={i} className="bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-lg p-4 flex flex-col justify-between transition-colors">
-                    <div className="flex justify-between items-start mb-3">
+                <div key={i} className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-5 flex flex-col justify-between transition-colors shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
                         <div>
-                            <div className="text-sm font-bold" style={{ color: getProfileTextColor(row.label) }}>{row.label}</div>
-                            <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] mt-0.5">{row.description}</div>
+                            <div className="text-sm sm:text-base font-extrabold tracking-tight uppercase" style={{ color: getProfileTextColor(row.label) }}>{row.label}</div>
+                            <div className="text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)] mt-1">{row.description}</div>
                         </div>
-                        <span className="font-mono font-bold text-sm" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
+                        <span className="font-mono font-extrabold text-sm sm:text-base" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</span>
                     </div>
                     <div>
-                        <div className="h-1.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-full overflow-hidden border border-[var(--md-sys-color-outline-variant)] mb-3">
-                          <div className="h-full rounded-full" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
+                        <div className="h-2 bg-[var(--md-sys-color-surface-container-highest)] rounded-full overflow-hidden border border-[var(--md-sys-color-outline-variant)] mb-4">
+                          <div className="h-full rounded-full transition-all duration-1000" style={{ width: width + "%", backgroundColor: signedColor(row.net) }} />
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-2">
                         {(row.top_brokers || []).map((b: any, j: number) => (
-                            <span key={j} className="inline-flex items-center gap-1.5 text-[10px] bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1">
-                                <span className="font-mono font-bold text-[var(--md-sys-color-on-surface)]">{b.broker_code}</span>
-                                <span className="text-[var(--md-sys-color-on-surface-variant)] uppercase">{b.participant_type === "Asing" ? "FOREIGN" : b.participant_type === "Lokal" ? "LOCAL" : b.participant_type}</span>
-                                <span className="font-mono" style={{ color: signedColor(b.net) }}>{fmtRp(b.net)}</span>
+                            <span key={j} className="inline-flex items-center gap-1.5 text-[10px] bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-3 py-1.5 shadow-sm">
+                                <span className="font-mono font-extrabold text-[var(--md-sys-color-on-surface)]">{b.broker_code}</span>
+                                <span className="text-[var(--md-sys-color-on-surface-variant)] font-bold uppercase">{b.participant_type === "Asing" ? "FOREIGN" : b.participant_type === "Lokal" ? "LOCAL" : b.participant_type}</span>
+                                <span className="font-mono font-extrabold" style={{ color: signedColor(b.net) }}>{fmtRp(b.net)}</span>
                             </span>
                         ))}
                         </div>
@@ -225,144 +225,144 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
       </div>
 
       {/* ====== PROFILE DETAIL ====== */}
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)] mb-1">Profile detail</label>
-        <select className="w-full md:w-64 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)]" value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
+      <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-5 sm:p-6 shadow-sm transition-colors duration-300">
+        <label className="block text-[10px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-2.5">Profile detail filter</label>
+        <select className="w-full md:w-72 bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm cursor-pointer mb-5" value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
             {PROFILE_OPTIONS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
         </select>
         
-        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl shadow-sm overflow-hidden mt-2 transition-colors duration-300">
+        <div className="bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] shadow-sm overflow-hidden transition-colors duration-300">
             <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2">
                 <table className="w-full text-xs text-left whitespace-nowrap">
-                    <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10">
-                    <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container-high)]">
-                        <th className="py-2.5 px-3 font-medium">Profile</th>
-                        <th className="py-2.5 px-3 font-medium">Broker</th>
-                        <th className="py-2.5 px-3 font-medium">Type</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Buy</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Sell</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Net</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Freq</th>
+                    <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container-highest)] z-10 shadow-sm">
+                    <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] text-[9px] uppercase tracking-widest font-extrabold">
+                        <th className="py-3 px-4">Profile</th>
+                        <th className="py-3 px-4">Broker</th>
+                        <th className="py-3 px-4">Type</th>
+                        <th className="py-3 px-4 text-right">Buy</th>
+                        <th className="py-3 px-4 text-right">Sell</th>
+                        <th className="py-3 px-4 text-right">Net</th>
+                        <th className="py-3 px-4 text-right">Freq</th>
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
+                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/40">
                     {filteredProfileDetail.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors">
-                        <td className="py-2.5 px-3 font-semibold" style={{ color: getProfileTextColor(row.profile) }}>{row.profile}</td>
-                        <td className="py-2.5 px-3 text-[var(--md-sys-color-on-surface)] font-mono">{row.broker}</td>
-                        <td className="py-2.5 px-3 uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.type}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{fmtRp(row.buy)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{fmtRp(row.sell)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-medium" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.freq.toLocaleString("id-ID")}</td>
+                        <td className="py-3 px-4 font-extrabold uppercase tracking-wide" style={{ color: getProfileTextColor(row.profile) }}>{row.profile}</td>
+                        <td className="py-3 px-4 text-[var(--md-sys-color-on-surface)] font-extrabold font-mono">{row.broker}</td>
+                        <td className="py-3 px-4 font-bold uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.type}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{fmtRp(row.buy)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{fmtRp(row.sell)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-extrabold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface-variant)]">{row.freq.toLocaleString("id-ID")}</td>
                         </tr>
                     ))}
                     </tbody>
                 </table>
-                {filteredProfileDetail.length === 0 && <div className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-6">No data for selected profile.</div>}
+                {filteredProfileDetail.length === 0 && <div className="text-center text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] py-8">No data for selected profile.</div>}
             </div>
         </div>
       </div>
 
       {/* ====== BROKER DISTRIBUTION ====== */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 mb-2 border-b border-[var(--md-sys-color-outline-variant)] pb-2">
-            <Icon icon="ph:link-bold" className="text-[var(--md-sys-color-on-surface-variant)]" width="16" />
-            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
+      <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-5 sm:p-6 shadow-sm transition-colors duration-300">
+        <div className="flex items-center gap-2 mb-5 border-b border-[var(--md-sys-color-outline-variant)] pb-3">
+            <Icon icon="ph:link-bold" className="text-[var(--md-sys-color-primary)]" width="20" />
+            <h3 className="text-sm sm:text-base font-extrabold text-[var(--md-sys-color-on-surface)] flex items-center gap-2 tracking-tight">
                 Broker Distribution
-                {isValidating && <Icon icon="ph:spinner-gap-duotone" className="animate-spin text-[var(--md-sys-color-primary)]" width="14" />}
+                {isValidating && <Icon icon="ph:spinner-gap-bold" className="animate-spin text-[var(--md-sys-color-primary)]" width="16" />}
             </h3>
         </div>
         
-        <div className="space-y-3">
-            <div>
-                <label className="block text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)] mb-1.5">Distribution mode</label>
-                <select className="w-full md:w-64 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)]" value={distMode} onChange={(e) => setDistMode(e.target.value)}>
+        <div className="flex flex-col md:flex-row gap-5 mb-5">
+            <div className="flex-1">
+                <label className="block text-[10px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-2.5">Distribution mode</label>
+                <select className="w-full bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm cursor-pointer" value={distMode} onChange={(e) => setDistMode(e.target.value)}>
                     <option value="Single day">Single day</option>
                     <option value="Date range">Date range</option>
                 </select>
             </div>
             
-            <div>
-                <label className="block text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)] mb-1.5">Distribution date</label>
+            <div className="flex-1">
+                <label className="block text-[10px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-2.5">Distribution date</label>
                 {distMode === "Single day" ? (
-                    <input type="date" className="w-full md:w-64 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none font-mono" value={distDate} onChange={(e) => setDistDate(e.target.value)} />
+                    <input type="date" className="w-full bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm" value={distDate} onChange={(e) => setDistDate(e.target.value)} />
                 ) : (
-                    <div className="flex items-center gap-2">
-                    <input type="date" className="w-full md:w-64 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none font-mono" value={distStart} onChange={(e) => setDistStart(e.target.value)} />
-                    <span className="text-[var(--md-sys-color-on-surface-variant)] text-xs">to</span>
-                    <input type="date" className="w-full md:w-64 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2 text-sm text-[var(--md-sys-color-on-surface)] outline-none font-mono" value={distEnd} onChange={(e) => setDistEnd(e.target.value)} />
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <input type="date" className="w-full sm:w-1/2 bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm" value={distStart} onChange={(e) => setDistStart(e.target.value)} />
+                    <span className="text-[var(--md-sys-color-on-surface-variant)] text-xs font-bold uppercase">to</span>
+                    <input type="date" className="w-full sm:w-1/2 bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-4 py-2.5 text-sm font-bold text-[var(--md-sys-color-on-surface)] outline-none focus:border-[var(--md-sys-color-primary)] shadow-sm" value={distEnd} onChange={(e) => setDistEnd(e.target.value)} />
                     </div>
                 )}
             </div>
-            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">The flow chart below uses broker-to-broker distribution edges returned by the live API.</p>
         </div>
+        <p className="text-xs font-medium text-[var(--md-sys-color-on-surface-variant)] mb-5">The flow chart below uses broker-to-broker distribution edges returned by the live API.</p>
 
         {/* Estimated Counterparties */}
         {dist.edges.length > 0 ? (
-            <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm mt-4 transition-colors duration-300">
-                <h4 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] mb-4">
+            <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-5 shadow-sm transition-colors duration-300">
+                <h4 className="text-sm font-extrabold text-[var(--md-sys-color-on-surface)] mb-4 tracking-tight">
                    Estimated Counterparties on {distMode === "Single day" ? distDate : `${distStart} to ${distEnd}`}
                 </h4>
-                <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] space-y-1.5 pr-2">
+                <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] space-y-2 pr-2">
                 {dist.edges.map((e: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between text-xs bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-3 py-2">
-                    <div className="flex items-center gap-2 w-1/3">
-                        <span className="text-[var(--color-positive)] font-mono font-bold">{e.buyer_code}</span>
-                        <span className="text-[9px] text-[var(--md-sys-color-on-surface-variant)] uppercase">{e.buyer_type}</span>
+                    <div key={i} className="flex items-center justify-between text-xs bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-xl px-4 py-3 shadow-sm hover:border-[var(--md-sys-color-primary)] transition-colors">
+                    <div className="flex items-center gap-2.5 w-1/3">
+                        <span className="text-[var(--color-positive)] font-mono font-extrabold">{e.buyer_code}</span>
+                        <span className="text-[9px] font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider">{e.buyer_type}</span>
                     </div>
                     <div className="w-1/3 text-center">
-                        <Icon icon="ph:arrow-right" className="text-[var(--md-sys-color-on-surface-variant)] inline-block" />
+                        <Icon icon="ph:arrow-right-bold" className="text-[var(--md-sys-color-outline)] inline-block" width="16" />
                     </div>
-                    <div className="flex items-center justify-end gap-2 w-1/3">
-                        <span className="text-[9px] text-[var(--md-sys-color-on-surface-variant)] uppercase">{e.seller_type}</span>
-                        <span className="text-[var(--color-negative)] font-mono font-bold">{e.seller_code}</span>
+                    <div className="flex items-center justify-end gap-2.5 w-1/3">
+                        <span className="text-[9px] font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider">{e.seller_type}</span>
+                        <span className="text-[var(--color-negative)] font-mono font-extrabold">{e.seller_code}</span>
                     </div>
-                    <span className="text-[var(--md-sys-color-on-surface)] font-mono tabular-nums ml-4">{fmtRp(e.matched_value)}</span>
+                    <span className="text-[var(--md-sys-color-on-surface)] font-mono font-extrabold tabular-nums ml-4">{fmtRp(e.matched_value)}</span>
                     </div>
                 ))}
                 </div>
             </div>
         ) : (
-            <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-5 shadow-sm mt-4 text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-6 transition-colors duration-300">
+            <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-5 shadow-sm mt-4 text-center text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] py-8 transition-colors duration-300">
                 No distribution data found for the selected dates.
             </div>
         )}
       </div>
 
       {/* ====== BROKER SUMMARY ====== */}
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)] mb-1">Broker Summary</label>
-        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl shadow-sm overflow-hidden transition-colors duration-300">
+      <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-5 sm:p-6 shadow-sm transition-colors duration-300">
+        <label className="block text-[10px] font-extrabold text-[var(--md-sys-color-on-surface)] uppercase tracking-widest mb-4">Broker Summary</label>
+        <div className="bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] shadow-sm overflow-hidden transition-colors duration-300">
             <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2">
                 <table className="w-full text-xs text-left whitespace-nowrap">
-                    <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10">
-                    <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container-high)]">
-                        <th className="py-2.5 px-3 font-medium">Buy Broker</th>
-                        <th className="py-2.5 px-3 font-medium">Buy Type</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Buy Value</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Buy Lot</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Buy Avg</th>
-                        <th className="py-2.5 px-3 font-medium">Sell Broker</th>
-                        <th className="py-2.5 px-3 font-medium">Sell Type</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Sell Value</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Sell Lot</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Sell Avg</th>
+                    <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container-highest)] z-10 shadow-sm">
+                    <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] text-[9px] uppercase tracking-widest font-extrabold">
+                        <th className="py-3 px-4">Buy Broker</th>
+                        <th className="py-3 px-4">Buy Type</th>
+                        <th className="py-3 px-4 text-right">Buy Value</th>
+                        <th className="py-3 px-4 text-right">Buy Lot</th>
+                        <th className="py-3 px-4 text-right">Buy Avg</th>
+                        <th className="py-3 px-4">Sell Broker</th>
+                        <th className="py-3 px-4">Sell Type</th>
+                        <th className="py-3 px-4 text-right">Sell Value</th>
+                        <th className="py-3 px-4 text-right">Sell Lot</th>
+                        <th className="py-3 px-4 text-right">Sell Avg</th>
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
+                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/40">
                     {summary.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors">
-                        <td className="py-2.5 px-3 text-[var(--md-sys-color-on-surface)] font-mono">{row.buy_broker || ""}</td>
-                        <td className="py-2.5 px-3 uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.buy_type || ""}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{fmtRp(row.buy_value)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.buy_lot ? row.buy_lot.toLocaleString("id-ID") : "None"}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.buy_avg ? row.buy_avg.toFixed(0) : "None"}</td>
-                        <td className="py-2.5 px-3 text-[var(--md-sys-color-on-surface)] font-mono">{row.sell_broker || ""}</td>
-                        <td className="py-2.5 px-3 uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.sell_type || ""}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{fmtRp(row.sell_value)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.sell_lot ? row.sell_lot.toLocaleString("id-ID") : "None"}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.sell_avg ? row.sell_avg.toFixed(0) : "None"}</td>
+                        <td className="py-3 px-4 text-[var(--md-sys-color-on-surface)] font-extrabold font-mono">{row.buy_broker || ""}</td>
+                        <td className="py-3 px-4 font-bold uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.buy_type || ""}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{fmtRp(row.buy_value)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface-variant)]">{row.buy_lot ? row.buy_lot.toLocaleString("id-ID") : "None"}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface-variant)]">{row.buy_avg ? row.buy_avg.toFixed(0) : "None"}</td>
+                        <td className="py-3 px-4 text-[var(--md-sys-color-on-surface)] font-extrabold font-mono">{row.sell_broker || ""}</td>
+                        <td className="py-3 px-4 font-bold uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.sell_type || ""}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{fmtRp(row.sell_value)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface-variant)]">{row.sell_lot ? row.sell_lot.toLocaleString("id-ID") : "None"}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface-variant)]">{row.sell_avg ? row.sell_avg.toFixed(0) : "None"}</td>
                         </tr>
                     ))}
                     </tbody>
@@ -372,30 +372,30 @@ export default function BrokerFlowTab({ ticker, analysisDate, windowDays }: { ti
       </div>
 
       {/* ====== DETAILED BROKER ROWS ====== */}
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)] mb-1">Detailed broker rows</label>
-        <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl shadow-sm overflow-hidden transition-colors duration-300">
+      <div className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[28px] p-5 sm:p-6 shadow-sm transition-colors duration-300">
+        <label className="block text-[10px] font-extrabold text-[var(--md-sys-color-on-surface)] uppercase tracking-widest mb-4">Detailed broker rows</label>
+        <div className="bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] shadow-sm overflow-hidden transition-colors duration-300">
             <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2">
                 <table className="w-full text-xs text-left whitespace-nowrap">
-                    <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10">
-                    <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container-high)]">
-                        <th className="py-2.5 px-3 font-medium">Broker</th>
-                        <th className="py-2.5 px-3 font-medium">Type</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Buy</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Sell</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Net</th>
-                        <th className="py-2.5 px-3 text-right font-medium">Freq</th>
+                    <thead className="sticky top-0 bg-[var(--md-sys-color-surface-container-highest)] z-10 shadow-sm">
+                    <tr className="text-[var(--md-sys-color-on-surface-variant)] border-b border-[var(--md-sys-color-outline-variant)] text-[9px] uppercase tracking-widest font-extrabold">
+                        <th className="py-3 px-4">Broker</th>
+                        <th className="py-3 px-4">Type</th>
+                        <th className="py-3 px-4 text-right">Buy</th>
+                        <th className="py-3 px-4 text-right">Sell</th>
+                        <th className="py-3 px-4 text-right">Net</th>
+                        <th className="py-3 px-4 text-right">Freq</th>
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/30">
+                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/40">
                     {detailRows.map((row: any, i: number) => (
                         <tr key={i} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors">
-                        <td className="py-2.5 px-3 text-[var(--md-sys-color-on-surface)] font-mono">{row.broker}</td>
-                        <td className="py-2.5 px-3 uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.type}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{row.buy ? fmtRp(row.buy) : "Rp 0"}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface)]">{row.sell ? fmtRp(row.sell) : "Rp 0"}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-medium" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-[var(--md-sys-color-on-surface-variant)]">{row.freq ? row.freq.toFixed(6) : "0"}</td>
+                        <td className="py-3 px-4 text-[var(--md-sys-color-on-surface)] font-extrabold font-mono">{row.broker}</td>
+                        <td className="py-3 px-4 font-bold uppercase text-[var(--md-sys-color-on-surface-variant)]">{row.type}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{row.buy ? fmtRp(row.buy) : "Rp 0"}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface)]">{row.sell ? fmtRp(row.sell) : "Rp 0"}</td>
+                        <td className="py-3 px-4 text-right font-mono font-extrabold" style={{ color: signedColor(row.net) }}>{fmtRp(row.net)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-[var(--md-sys-color-on-surface-variant)]">{row.freq ? row.freq.toFixed(6) : "0"}</td>
                         </tr>
                     ))}
                     </tbody>
