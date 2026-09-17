@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from models import BrokerFlow
-from routers import stocks, broker
+from routers import stocks, broker, auth
 from app.routers import bandarmology
 from idx_bandarmology.universe import refresh_master_tickers
 from routers import foreign_flow
@@ -39,7 +39,6 @@ except Exception:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pemindahan logic startup_event ke lifespan (menghilangkan deprecation warning)
     try:
         count = refresh_master_tickers(force=False)
         print(f"[FastAPI Startup] Master tickers siap: {count} emiten aktif.")
@@ -62,14 +61,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
 # ── Custom Rate Limiting Middleware (Keamanan Anti-Spam/Bot) ──
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    # Hanya batasi endpoint analitik berat
     if "/api/foreign-flow" in request.url.path or "/api/bandar" in request.url.path:
         client_ip = request.client.host
         endpoint = request.url.path
@@ -78,8 +76,8 @@ async def rate_limit_middleware(request: Request, call_next):
         if redis_client:
             count = redis_client.incr(key)
             if count == 1:
-                redis_client.expire(key, 60) # Reset hitungan setiap 60 detik
-            if count > 30: # Maks 30 request per menit
+                redis_client.expire(key, 60)
+            if count > 30:
                 return JSONResponse(
                     status_code=429, 
                     content={"detail": "Rate limit exceeded. Maksimum 30 request per menit."}
@@ -91,6 +89,7 @@ async def rate_limit_middleware(request: Request, call_next):
 # ── Routers ──
 app.include_router(stocks.router, prefix=settings.API_V1_PREFIX)
 app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(bandarmology.router)
 app.include_router(foreign_flow.router)
 

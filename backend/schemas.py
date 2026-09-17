@@ -72,26 +72,46 @@ class BrokerFlowSummary(BaseModel):
     period_days: int
     trading_days: int
 
-    # Akumulasi net (dalam Rupiah)
     foreign_net_broker_sum: float
     local_net_broker_sum: float
     gov_net_broker_sum: float
     total_value_sum: float
 
-    # Rasio distribusi (persentase 0-100)
     foreign_dominance_pct: float
 
-    # Sinyal terakhir
     latest_bandar_signal: str | None
     latest_bandar_signal_score: float | None
     latest_foreign_signal: str | None
 
-    # Hitungan sinyal dalam periode
-    accumulation_days: int   # jumlah hari dengan bandar_signal mengandung 'akumulasi'
-    distribution_days: int   # jumlah hari dengan bandar_signal mengandung 'distribusi'
+    accumulation_days: int
+    distribution_days: int
 
     latest_date: date_type | None
 
 
 class ErrorResponse(BaseModel):
     detail: str
+
+# ══════════════════════════════════════════════════════════
+# Authentication Schemas
+# ══════════════════════════════════════════════════════════
+
+class UserBase(BaseModel):
+    email: str
+    name: str | None = None
+    image: str | None = None
+    provider: str | None = None
+
+class UserSyncRequest(UserBase):
+    pass
+
+class UserApprovalRequest(BaseModel):
+    is_approved: bool
+
+class UserRead(UserBase):
+    id: int
+    role: str
+    is_approved: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

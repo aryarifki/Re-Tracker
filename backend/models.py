@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, Numeric, String, Text
+from sqlalchemy import BigInteger, Date, DateTime, Numeric, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -63,3 +63,22 @@ class BrokerFlow(Base):
 
     # ── Metadata ──
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# ══════════════════════════════════════════════════════════
+# Authentication Models
+# ══════════════════════════════════════════════════════════
+
+class User(Base):
+    """Model untuk menyimpan daftar user yang login via NextAuth."""
+    __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    image: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    role: Mapped[str] = mapped_column(String(50), default="user")
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
