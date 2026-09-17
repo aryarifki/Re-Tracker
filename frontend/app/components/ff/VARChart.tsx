@@ -1,8 +1,23 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
+import { useAppStore } from '@/store/useAppStore';
 
 export default function VARChart({ irfData }: { irfData: any }) {
+  const theme = useAppStore((state) => state.theme);
+  const [styles, setStyles] = useState<any>({});
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rootStyle = getComputedStyle(document.documentElement);
+    setStyles({
+      surfaceHigh: rootStyle.getPropertyValue('--md-sys-color-surface-container-highest').trim() || (theme === 'dark' ? '#36343B' : '#E6E0E9'),
+      onSurface: rootStyle.getPropertyValue('--md-sys-color-on-surface').trim() || (theme === 'dark' ? '#E6E0E9' : '#1D1B20'),
+      onSurfaceVariant: rootStyle.getPropertyValue('--md-sys-color-on-surface-variant').trim() || (theme === 'dark' ? '#CAC4D0' : '#49454F'),
+      outlineVariant: rootStyle.getPropertyValue('--md-sys-color-outline-variant').trim() || (theme === 'dark' ? '#49454F' : '#CAC4D0'),
+    });
+  }, [theme]);
+
   if (!irfData || !irfData.foreign_shock_to_ret) return null;
 
   const horizon = irfData.foreign_shock_to_ret.length;
@@ -13,26 +28,30 @@ export default function VARChart({ irfData }: { irfData: any }) {
     val + (val - lowerBound[i])
   );
   const bandDifference = upperBound.map((up: number, i: number) => up - lowerBound[i]);
-  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute('data-theme') === 'dark';
+
+  if (!styles.surfaceHigh) return <div className="h-full w-full bg-transparent"></div>;
 
   const option = {
     tooltip: { 
       trigger: 'axis',
-      backgroundColor: isDark ? '#1C1916' : '#FFFFFF',
-      borderColor: isDark ? '#52443C' : '#D7C2B4',
-      textStyle: { color: isDark ? '#EBE0D9' : '#1E1A17', fontSize: 11 }
+      backgroundColor: styles.surfaceHigh,
+      borderColor: styles.outlineVariant,
+      textStyle: { color: styles.onSurface, fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 600 },
+      padding: [8, 12],
+      borderRadius: 12,
+      extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);'
     },
-    grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
+    grid: { left: '2%', right: '2%', bottom: '3%', top: '5%', containLabel: true },
     xAxis: { 
       type: 'category', 
       boundaryGap: false, 
       data: xAxisData,
-      axisLabel: { color: isDark ? '#D7C2B4' : '#4E453F', fontSize: 10 }
+      axisLabel: { color: styles.onSurfaceVariant, fontSize: 10, fontFamily: 'Inter, sans-serif', fontWeight: 700 }
     },
     yAxis: { 
       type: 'value',
-      splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' } },
-      axisLabel: { color: isDark ? '#D7C2B4' : '#4E453F', fontSize: 10 }
+      splitLine: { lineStyle: { color: theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' } },
+      axisLabel: { color: styles.onSurfaceVariant, fontSize: 10, fontFamily: 'Inter, sans-serif', fontWeight: 700 }
     },
     series: [
       {
@@ -48,7 +67,7 @@ export default function VARChart({ irfData }: { irfData: any }) {
         type: 'line',
         data: bandDifference,
         lineStyle: { opacity: 0 },
-        areaStyle: { color: '#3b82f6', opacity: 0.1 }, 
+        areaStyle: { color: '#3b82f6', opacity: theme === 'dark' ? 0.15 : 0.1 }, 
         stack: 'confidence',
         symbol: 'none'
       },
@@ -58,7 +77,7 @@ export default function VARChart({ irfData }: { irfData: any }) {
         data: irfData.foreign_shock_to_ret,
         smooth: true,
         itemStyle: { color: '#3b82f6' },
-        lineStyle: { width: 3 },
+        lineStyle: { width: 3.5 },
         symbol: 'none'
       }
     ]
