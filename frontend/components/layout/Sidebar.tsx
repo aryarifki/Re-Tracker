@@ -53,7 +53,7 @@ export default function Sidebar() {
   const availableDates: string[] = datesData?.dates || [];
 
   useEffect(() => {
-    if (availableDates.length > 0 && !analysisDate) {
+    if (availableDates.length > 0 && (!analysisDate || !availableDates.includes(analysisDate))) {
       const latest = availableDates[availableDates.length - 1];
       setAnalysisDate(latest);
       setBackfillEnd(latest);

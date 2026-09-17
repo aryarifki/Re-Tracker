@@ -5,7 +5,6 @@ interface AppState {
   theme: "dark" | "light";
   activeTicker: string;
   sidebarOpen: boolean;
-  
   summaryDays: number;
   universe: string;
   analysisDate: string;
@@ -13,7 +12,6 @@ interface AppState {
   horizon: number;
   minEvents: number;
   minNetBuy: number;
-  
   localWatchlist: string[];
 
   setTheme: (theme: "dark" | "light") => void;
@@ -33,10 +31,9 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      theme: "dark", // Default gelap agar pengguna lama tidak kaget
+      theme: "dark",
       activeTicker: "BBCA",
       sidebarOpen: false,
-      
       summaryDays: 30,
       universe: "watchlist",
       analysisDate: "",
@@ -44,7 +41,6 @@ export const useAppStore = create<AppState>()(
       horizon: 10,
       minEvents: 5,
       minNetBuy: 0,
-      
       localWatchlist: [],
 
       setTheme: (theme) => set({ theme }),
@@ -62,8 +58,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "investowl-global-state",
+      version: 1, // Memaksa browser mereset data nyangkut di local storage
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ ...state, sidebarOpen: false }), 
+      partialize: (state) => {
+        // Mengecualikan analysisDate agar selalu ditarik dari DB terbaru
+        const { sidebarOpen, analysisDate, ...rest } = state;
+        return rest;
+      },
     }
   )
 );
