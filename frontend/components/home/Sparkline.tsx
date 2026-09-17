@@ -17,12 +17,12 @@ export default function Sparkline({ data, up }: { data: number[]; up: boolean })
     .join(" ");
 
   return (
-    <svg viewBox="0 0 100 28" className="w-16 h-6 opacity-80" preserveAspectRatio="none">
+    <svg viewBox="0 0 100 28" className="w-16 h-7" preserveAspectRatio="none">
       <polyline
         points={pts}
         fill="none"
         stroke={up ? "var(--color-positive)" : "var(--color-negative)"}
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
