@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -12,8 +13,19 @@ def sync_user(user_req: schemas.UserSyncRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == user_req.email).first()
     
     if not user:
-        # Otomatis jadikan admin & langsung approve jika email mengandung nama Anda
-        is_owner = "adryan" in user_req.email.lower() or "arya" in user_req.email.lower()
+        # Pengecekan admin: jika ADMIN_EMAILS disetel di .env, gunakan whitelist presisi.
+        # Fallback kompatibilitas otomatis jika env belum disetel agar tidak lock out.
+        admin_whitelist = {
+            e.strip().lower() 
+            for e in os.getenv("ADMIN_EMAILS", "").split(",") 
+            if e.strip()
+        }
+        
+        email_clean = user_req.email.strip().lower()
+        if admin_whitelist:
+            is_owner = email_clean in admin_whitelist
+        else:
+            is_owner = "adryan" in email_clean or "arya" in email_clean
         
         user = models.User(
             email=user_req.email,
@@ -21,7 +33,7 @@ def sync_user(user_req: schemas.UserSyncRequest, db: Session = Depends(get_db)):
             image=user_req.image,
             provider=user_req.provider,
             role="admin" if is_owner else "user",
-            is_approved=is_owner  # Langsung True untuk Anda!
+            is_approved=is_owner  # Langsung True untuk Admin
         )
         db.add(user)
         db.commit()
