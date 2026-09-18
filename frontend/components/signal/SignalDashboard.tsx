@@ -1,17 +1,23 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import useSWR from 'swr';
 import { Icon } from "@iconify/react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function SignalDashboard() {
-  // Limit dinaikkan drastis agar seluruh sinyal yang lolos threshold tertampil di tabel
   const { data, error, isLoading, isValidating, mutate } = useSWR('/api/signal/daily?limit=500', fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false
   });
+
+  // ── FILTERING DI FRONTEND ──
+  // Hanya tampilkan saham yang lolos Hard Gates (Skor > 0)
+  const validSignals = useMemo(() => {
+    if (!data?.data) return [];
+    return data.data.filter((sig: any) => sig.composite_score > 0);
+  }, [data]);
 
   if (isLoading && !data) return (
     <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] rounded-xl flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)] shadow-sm">
@@ -26,33 +32,25 @@ export default function SignalDashboard() {
     </div>
   );
 
-  const signals = data.data;
-
   return (
     <div className="space-y-4 pb-12 animate-fade-in">
       
       {/* ====== CONTAINER TABEL (Fixed Height dengan Flexbox) ====== */}
       <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 sm:p-5 shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
         
-        {/* --- HEADER ALA DASHBOARD --- */}
+        {/* --- TOOLBAR RINGKAS ALA RAW TABLES (Tanpa Double Header) --- */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 gap-4 flex-shrink-0">
-          <div>
-            <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-widest mb-1.5 flex items-center gap-2">
-              <Icon icon="ph:robot-bold" /> AI SIGNAL TERMINAL
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Icon icon="ph:radar-duotone" className="text-[var(--md-sys-color-primary)]" width="18" height="18" />
+            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] mr-2">Scanner Results</h3>
             
-            <div className="flex flex-wrap items-center gap-3 mb-1.5">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">Algorithmic Top Picks</h2>
-              <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1 flex items-center gap-1.5">
-                <Icon icon="ph:calendar-blank-duotone" /> {data.latest_date}
-              </span>
-            </div>
+            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1 flex items-center gap-1.5">
+              <Icon icon="ph:calendar-blank-duotone" /> {data.latest_date}
+            </span>
             
-            <div className="flex items-center gap-2 text-[10px] sm:text-xs">
-              <span className="text-[var(--md-sys-color-on-surface-variant)] font-medium">Bursa Efek Indonesia</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-outline-variant)]" />
-              <span className="text-[var(--md-sys-color-primary)] font-bold">{data.count} Saham Terdeteksi</span>
-            </div>
+            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1">
+              <span className="text-[var(--md-sys-color-primary)]">{validSignals.length}</span> Saham Lolos
+            </span>
           </div>
 
           <button 
@@ -65,14 +63,14 @@ export default function SignalDashboard() {
               className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
               width="14" height="14" 
             />
-            <span>{isValidating ? "Syncing..." : "Refresh Signals"}</span>
+            <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
           </button>
         </div>
 
         {/* --- AREA TABEL (Overflow Auto & Scrollbar) --- */}
         <div className="overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2 flex-grow relative z-0">
           
-          {signals.length === 0 ? (
+          {validSignals.length === 0 ? (
             <div className="p-8 text-center text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
               Belum ada sinyal yang memenuhi kriteria ketat algoritma pada tanggal ini.
             </div>
@@ -81,7 +79,6 @@ export default function SignalDashboard() {
               
               <thead className="bg-[var(--md-sys-color-surface-container)]">
                 <tr className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)]">
-                  {/* TH Emiten: Sticky di Atas & Kiri (z-30 agar mengambang di atas segalanya) */}
                   <th className="py-2.5 px-4 font-medium rounded-tl-md sticky top-0 left-0 z-30 bg-[var(--md-sys-color-surface-container-high)] border-b border-r border-[var(--md-sys-color-outline-variant)]">
                     Emiten
                   </th>
@@ -104,11 +101,10 @@ export default function SignalDashboard() {
               </thead>
 
               <tbody>
-                {signals.map((sig: any, idx: number) => {
+                {validSignals.map((sig: any, idx: number) => {
                   const isWin = sig.ml_label === "WIN";
                   const isLoss = sig.ml_label === "LOSS";
                   
-                  // Style Tema (Adaptasi dari RawTablesTab)
                   let badgeTheme = "text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]";
                   if (isWin) badgeTheme = "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
                   else if (isLoss) badgeTheme = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
@@ -128,7 +124,6 @@ export default function SignalDashboard() {
                   return (
                     <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)] group">
                       
-                      {/* TD Emiten: Sticky Kiri (z-10) dengan background warna dasar agar teks di belakangnya tidak menembus */}
                       <td className="py-2.5 px-4 font-mono font-bold text-[var(--md-sys-color-on-surface)] sticky left-0 z-10 bg-[var(--md-sys-color-surface-container)] group-hover:bg-[var(--md-sys-color-surface-container-highest)] border-b border-r border-[var(--md-sys-color-outline-variant)]/30 transition-colors">
                         {sig.ticker}
                       </td>
@@ -180,3 +175,4 @@ export default function SignalDashboard() {
     </div>
   );
 }
+EOF
