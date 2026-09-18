@@ -1,3 +1,4 @@
+# backend/routers/signal.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from database import get_db
 router = APIRouter(prefix="/api/signal", tags=["AI Signals"])
 
 @router.get("/daily")
-def get_daily_signals(limit: int = 5, db: Session = Depends(get_db)):
+def get_daily_signals(limit: int = 100, db: Session = Depends(get_db)):
     """Mengambil Top AI Signals berdasarkan tanggal scan terbaru."""
     
     # 1. Cari tanggal scan terakhir yang ada di database
@@ -19,13 +20,15 @@ def get_daily_signals(limit: int = 5, db: Session = Depends(get_db)):
     if not latest_date:
         raise HTTPException(status_code=404, detail="Belum ada sinyal yang digenerate oleh AI.")
 
-    # 2. Ambil Top saham berdasarkan composite_score di tanggal tersebut
+    # 2. Ambil saham dengan composite_score > 0 (membuang saham gorengan/blocked)
+    # Kita batasi default limit 100 agar tidak membebani frontend
     query = text("""
         SELECT a.ticker, a.date, a.ml_win_prob, a.composite_score, 
                a.technical_score, a.smart_money_score, a.sector_score, 
-               a.fundamental_score, a.ml_label, a.features_snapshot
+               a.fundamental_score, a.ml_label, a.features_snapshot, a.gate_notes
         FROM analytics_daily_signals a
-        WHERE a.date = :date
+        WHERE a.date = :date 
+          AND a.composite_score > 0  -- Buang saham yang terkena blokir Hard Gate / Gorengan
         ORDER BY a.composite_score DESC
         LIMIT :limit
     """)
@@ -48,7 +51,8 @@ def get_daily_signals(limit: int = 5, db: Session = Depends(get_db)):
                 "sector": r.sector_score,
                 "fundamental": r.fundamental_score
             },
-            "features": features
+            "features": features,
+            "gate_notes": r.gate_notes if r.gate_notes else ""
         })
         
     return {
