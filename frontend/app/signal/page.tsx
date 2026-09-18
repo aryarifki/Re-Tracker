@@ -1,5 +1,5 @@
 import React from 'react';
-import SignalDashboard from '@/components/signal/SignalDashboard';
+import SignalDashboard from '../../components/signal/SignalDashboard';
 
 export const metadata = {
   title: 'AI Signal | The Investowl',
