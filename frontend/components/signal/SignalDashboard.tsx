@@ -12,11 +12,12 @@ export default function SignalDashboard() {
     revalidateOnFocus: false
   });
 
-  // ── FILTERING DI FRONTEND ──
-  // Hanya tampilkan saham yang lolos Hard Gates (Skor > 0)
+  // FILTERING FRONTEND: 
+  // Menyamakan dengan terminal Python yang membuang skor di bawah Threshold (misal: 35)
+  // Ini akan mengubah tampilan dari 370+ saham menjadi hanya ~47 saham Top Picks (Sinyal BUY)
   const validSignals = useMemo(() => {
     if (!data?.data) return [];
-    return data.data.filter((sig: any) => sig.composite_score > 0);
+    return data.data.filter((sig: any) => sig.composite_score >= 35);
   }, [data]);
 
   if (isLoading && !data) return (
@@ -35,51 +36,54 @@ export default function SignalDashboard() {
   return (
     <div className="space-y-4 pb-12 animate-fade-in">
       
-      {/* ====== CONTAINER TABEL (Fixed Height dengan Flexbox) ====== */}
-      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 sm:p-5 shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
-        
-        {/* --- TOOLBAR RINGKAS ALA RAW TABLES (Tanpa Double Header) --- */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 gap-4 flex-shrink-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Icon icon="ph:radar-duotone" className="text-[var(--md-sys-color-primary)]" width="18" height="18" />
-            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] mr-2">Scanner Results</h3>
-            
-            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1 flex items-center gap-1.5">
-              <Icon icon="ph:calendar-blank-duotone" /> {data.latest_date}
-            </span>
-            
-            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1">
-              <span className="text-[var(--md-sys-color-primary)]">{validSignals.length}</span> Saham Lolos
+      {/* ====== HEADER 100% SAMA DENGAN DASHBOARD BBCA ====== */}
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors duration-300">
+        <div>
+          <div className="text-[10px] font-bold text-[var(--md-sys-color-primary)] uppercase tracking-widest mb-0.5">
+            SMART MONEY DASHBOARD
+          </div>
+          
+          <div className="flex items-center gap-3 mb-1.5">
+            <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)]">Algorithmic Top Picks</h1>
+            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-2.5 py-1 shadow-sm flex items-center gap-1.5">
+              Window: {data.latest_date}
             </span>
           </div>
-
-          <button 
-            onClick={() => mutate()}
-            disabled={isValidating}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-semibold text-[var(--md-sys-color-on-surface)] transition-all active:scale-[0.98] disabled:opacity-50"
-          >
-            <Icon 
-              icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-bold"} 
-              className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
-              width="14" height="14" 
-            />
-            <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
-          </button>
+          
+          <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+            <span className="text-[var(--md-sys-color-on-surface-variant)] font-medium">Bursa Efek Indonesia</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-outline-variant)]" />
+            <span className="text-[var(--md-sys-color-primary)] font-semibold">{validSignals.length} Sinyal BUY Lolos Threshold</span>
+          </div>
         </div>
 
-        {/* --- AREA TABEL (Overflow Auto & Scrollbar) --- */}
-        <div className="overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2 flex-grow relative z-0">
-          
+        <button 
+          onClick={() => mutate()}
+          disabled={isValidating}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-semibold text-[var(--md-sys-color-on-surface)] transition-all active:scale-[0.98] disabled:opacity-50"
+        >
+          <Icon 
+            icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-bold"} 
+            className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
+            width="14" height="14" 
+          />
+          <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
+        </button>
+      </div>
+
+      {/* ====== CONTAINER TABEL (Bisa Di-scroll seperti RawTables) ====== */}
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
+        
+        <div className="overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] flex-grow relative z-0 rounded-xl">
           {validSignals.length === 0 ? (
             <div className="p-8 text-center text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
               Belum ada sinyal yang memenuhi kriteria ketat algoritma pada tanggal ini.
             </div>
           ) : (
             <table className="w-full text-left whitespace-nowrap text-xs border-separate border-spacing-0">
-              
               <thead className="bg-[var(--md-sys-color-surface-container)]">
                 <tr className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)]">
-                  <th className="py-2.5 px-4 font-medium rounded-tl-md sticky top-0 left-0 z-30 bg-[var(--md-sys-color-surface-container-high)] border-b border-r border-[var(--md-sys-color-outline-variant)]">
+                  <th className="py-2.5 px-4 font-medium sticky top-0 left-0 z-30 bg-[var(--md-sys-color-surface-container-high)] border-b border-r border-[var(--md-sys-color-outline-variant)] shadow-[1px_0_0_0_var(--md-sys-color-outline-variant)]">
                     Emiten
                   </th>
                   <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
@@ -94,12 +98,11 @@ export default function SignalDashboard() {
                   <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
                     Smart Money
                   </th>
-                  <th className="py-2.5 px-4 font-medium rounded-tr-md sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                  <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
                     Sector & Context
                   </th>
                 </tr>
               </thead>
-
               <tbody>
                 {validSignals.map((sig: any, idx: number) => {
                   const isWin = sig.ml_label === "WIN";
@@ -124,7 +127,8 @@ export default function SignalDashboard() {
                   return (
                     <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)] group">
                       
-                      <td className="py-2.5 px-4 font-mono font-bold text-[var(--md-sys-color-on-surface)] sticky left-0 z-10 bg-[var(--md-sys-color-surface-container)] group-hover:bg-[var(--md-sys-color-surface-container-highest)] border-b border-r border-[var(--md-sys-color-outline-variant)]/30 transition-colors">
+                      {/* TD Emiten: Dipertahankan lengket (sticky) di sebelah kiri saat digulir horizontal */}
+                      <td className="py-2.5 px-4 font-mono font-bold text-[var(--md-sys-color-on-surface)] sticky left-0 z-10 bg-[var(--md-sys-color-surface-container)] group-hover:bg-[var(--md-sys-color-surface-container-highest)] border-b border-r border-[var(--md-sys-color-outline-variant)]/30 transition-colors shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
                         {sig.ticker}
                       </td>
                       
@@ -152,7 +156,6 @@ export default function SignalDashboard() {
                           <span className="font-bold text-indigo-500 dark:text-indigo-400 truncate" title={secNotes}>
                             {secNotes}
                           </span>
-                          
                           <div className={`rounded p-1.5 border flex items-start gap-1.5 shadow-sm ${alertBoxClass}`}>
                             <Icon icon={sig.scores?.smart_money >= 65 ? "ph:check-circle-bold" : "ph:warning-circle-bold"} width="12" className="shrink-0 mt-0.5" />
                             <span className="text-[9.5px] font-medium leading-relaxed whitespace-normal break-words">
@@ -163,9 +166,8 @@ export default function SignalDashboard() {
                           </div>
                         </div>
                       </td>
-
                     </tr>
-                  );
+                  )
                 })}
               </tbody>
             </table>
