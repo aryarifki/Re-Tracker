@@ -13,11 +13,10 @@ export default function SignalDashboard() {
   });
 
   // FILTERING FRONTEND: 
-  // Menyamakan dengan terminal Python yang membuang skor di bawah Threshold (misal: 35)
-  // Ini akan mengubah tampilan dari 370+ saham menjadi hanya ~47 saham Top Picks (Sinyal BUY)
+  // Menyesuaikan dengan dynamic threshold BEAR market di Python Anda (37)
   const validSignals = useMemo(() => {
     if (!data?.data) return [];
-    return data.data.filter((sig: any) => sig.composite_score >= 35);
+    return data.data.filter((sig: any) => sig.composite_score >= 37);
   }, [data]);
 
   if (isLoading && !data) return (
@@ -36,54 +35,50 @@ export default function SignalDashboard() {
   return (
     <div className="space-y-4 pb-12 animate-fade-in">
       
-      {/* ====== HEADER 100% SAMA DENGAN DASHBOARD BBCA ====== */}
-      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-3.5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors duration-300">
-        <div>
-          <div className="text-[10px] font-bold text-[var(--md-sys-color-primary)] uppercase tracking-widest mb-0.5">
-            SMART MONEY DASHBOARD
-          </div>
-          
-          <div className="flex items-center gap-3 mb-1.5">
-            <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)]">Algorithmic Top Picks</h1>
-            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-2.5 py-1 shadow-sm flex items-center gap-1.5">
-              Window: {data.latest_date}
+      {/* ====== CONTAINER TABEL (Fixed Height dengan Flexbox) ====== */}
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 sm:p-5 shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
+        
+        {/* --- HEADER COMPACT "SCANNER RESULTS" YANG ANDA MINTA --- */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 gap-4 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] mr-2">Scanner Results</h3>
+            
+            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1 flex items-center gap-1.5">
+              <Icon icon="ph:calendar-blank-duotone" /> {data.latest_date}
+            </span>
+            
+            <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1">
+              <span className="text-[var(--md-sys-color-primary)]">{validSignals.length}</span> Saham Lolos
             </span>
           </div>
-          
-          <div className="flex items-center gap-2 text-[10px] sm:text-xs">
-            <span className="text-[var(--md-sys-color-on-surface-variant)] font-medium">Bursa Efek Indonesia</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-outline-variant)]" />
-            <span className="text-[var(--md-sys-color-primary)] font-semibold">{validSignals.length} Sinyal BUY Lolos Threshold</span>
-          </div>
+
+          <button 
+            onClick={() => mutate()}
+            disabled={isValidating}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-semibold text-[var(--md-sys-color-on-surface)] transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            <Icon 
+              icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-bold"} 
+              className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
+              width="14" height="14" 
+            />
+            <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
+          </button>
         </div>
 
-        <button 
-          onClick={() => mutate()}
-          disabled={isValidating}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-semibold text-[var(--md-sys-color-on-surface)] transition-all active:scale-[0.98] disabled:opacity-50"
-        >
-          <Icon 
-            icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-bold"} 
-            className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
-            width="14" height="14" 
-          />
-          <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
-        </button>
-      </div>
-
-      {/* ====== CONTAINER TABEL (Bisa Di-scroll seperti RawTables) ====== */}
-      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
-        
-        <div className="overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] flex-grow relative z-0 rounded-xl">
+        {/* --- AREA TABEL (Scrollable H/V) --- */}
+        <div className="overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2 flex-grow relative z-0">
+          
           {validSignals.length === 0 ? (
             <div className="p-8 text-center text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
               Belum ada sinyal yang memenuhi kriteria ketat algoritma pada tanggal ini.
             </div>
           ) : (
             <table className="w-full text-left whitespace-nowrap text-xs border-separate border-spacing-0">
+              
               <thead className="bg-[var(--md-sys-color-surface-container)]">
                 <tr className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)]">
-                  <th className="py-2.5 px-4 font-medium sticky top-0 left-0 z-30 bg-[var(--md-sys-color-surface-container-high)] border-b border-r border-[var(--md-sys-color-outline-variant)] shadow-[1px_0_0_0_var(--md-sys-color-outline-variant)]">
+                  <th className="py-2.5 px-4 font-medium rounded-tl-md sticky top-0 left-0 z-30 bg-[var(--md-sys-color-surface-container-high)] border-b border-r border-[var(--md-sys-color-outline-variant)] shadow-[1px_0_0_0_var(--md-sys-color-outline-variant)]">
                     Emiten
                   </th>
                   <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
@@ -98,24 +93,22 @@ export default function SignalDashboard() {
                   <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
                     Smart Money
                   </th>
-                  <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                  <th className="py-2.5 px-4 font-medium rounded-tr-md sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
                     Sector & Context
                   </th>
                 </tr>
               </thead>
+
               <tbody>
                 {validSignals.map((sig: any, idx: number) => {
                   const isWin = sig.ml_label === "WIN";
                   const isLoss = sig.ml_label === "LOSS";
                   
+                  // Style Tema (Adaptasi dari RawTablesTab)
                   let badgeTheme = "text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]";
                   if (isWin) badgeTheme = "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
                   else if (isLoss) badgeTheme = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
                   else badgeTheme = "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
-                  
-                  const alertBoxClass = sig.scores?.smart_money >= 65 
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
 
                   const scoreColorClass = isWin ? "text-[var(--color-positive)]" : "text-amber-600 dark:text-amber-400";
                   const smColorClass = sig.scores?.smart_money >= 65 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
@@ -124,10 +117,17 @@ export default function SignalDashboard() {
                   const smNotes = sig.features?.smart_money_notes?.split("·")[0].trim() || "Netral";
                   const secNotes = sig.features?.sector_notes?.split("(")[0].trim() || "Neutral";
                   
+                  // === LOGIKA SOFT GATES MURNI DARI PYTHON ===
+                  const gateNotes = sig.features?.gate_notes || "";
+                  const isClear = gateNotes === "Clear" || gateNotes === "";
+                  
+                  const alertBoxClass = isClear 
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300";
+                  
                   return (
                     <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)] group">
                       
-                      {/* TD Emiten: Dipertahankan lengket (sticky) di sebelah kiri saat digulir horizontal */}
                       <td className="py-2.5 px-4 font-mono font-bold text-[var(--md-sys-color-on-surface)] sticky left-0 z-10 bg-[var(--md-sys-color-surface-container)] group-hover:bg-[var(--md-sys-color-surface-container-highest)] border-b border-r border-[var(--md-sys-color-outline-variant)]/30 transition-colors shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
                         {sig.ticker}
                       </td>
@@ -147,27 +147,28 @@ export default function SignalDashboard() {
                         Phase {wp}
                       </td>
                       
-                      <td className={`py-2.5 px-4 font-bold max-w-[200px] truncate border-b border-[var(--md-sys-color-outline-variant)]/30 ${smColorClass}`} title={smNotes}>
+                      <td className={`py-2.5 px-4 font-bold max-w-[150px] truncate border-b border-[var(--md-sys-color-outline-variant)]/30 ${smColorClass}`} title={smNotes}>
                         {smNotes}
                       </td>
                       
-                      <td className="py-2.5 px-4 min-w-[300px] max-w-[400px] border-b border-[var(--md-sys-color-outline-variant)]/30">
+                      <td className="py-2.5 px-4 min-w-[350px] max-w-[450px] border-b border-[var(--md-sys-color-outline-variant)]/30">
                         <div className="flex flex-col gap-1.5 py-1">
                           <span className="font-bold text-indigo-500 dark:text-indigo-400 truncate" title={secNotes}>
                             {secNotes}
                           </span>
+                          
+                          {/* Alert Box murni me-render hasil analisis Soft Gates dari DB */}
                           <div className={`rounded p-1.5 border flex items-start gap-1.5 shadow-sm ${alertBoxClass}`}>
-                            <Icon icon={sig.scores?.smart_money >= 65 ? "ph:check-circle-bold" : "ph:warning-circle-bold"} width="12" className="shrink-0 mt-0.5" />
+                            <Icon icon={isClear ? "ph:check-circle-bold" : "ph:warning-circle-bold"} width="12" className="shrink-0 mt-0.5" />
                             <span className="text-[9.5px] font-medium leading-relaxed whitespace-normal break-words">
-                              {sig.scores?.smart_money >= 65 
-                                ? "Sinyal didukung akumulasi kuat. WIN rate tinggi." 
-                                : "Valid teknikal, tapi smart-money netral/distribusi. Hati-hati."}
+                              {isClear ? "Kondisi teknikal ideal. Tidak ada penalti Soft Gates." : `Gates: ${gateNotes}`}
                             </span>
                           </div>
                         </div>
                       </td>
+
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
