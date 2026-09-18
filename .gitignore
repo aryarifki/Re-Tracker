@@ -21,4 +21,6 @@ venv/
 env/
 .pytest_cache/
 alembic.ini
-backend/test.db 
+backend/test.db
+*.log
+backend/uvicorn.log
