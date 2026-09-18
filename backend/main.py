@@ -92,6 +92,7 @@ app.include_router(broker.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(bandarmology.router)
 app.include_router(foreign_flow.router)
+app.include_router(signal.router)
 
 @app.get("/", tags=["Health"])
 def root():
