@@ -7,9 +7,13 @@ seaborn
 statsmodels
 matplotlib
 plotly
-streamlit
-streamlit-searchbox
 python-dotenv
 psycopg2-binary
 requests
 SQLAlchemy
+redis
+hmmlearn
+networkx
+scikit-learn
+pytest
+pytest-cov
