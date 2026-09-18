@@ -286,7 +286,6 @@ def read_prices(
     end_date: str | date | None = None,
 ) -> pd.DataFrame:
     """Read prices with optional ticker and date-range filtering pushed down to SQL."""
-    init_db()
     clauses = []
     params: dict[str, object] = {}
     if tickers:
@@ -311,7 +310,6 @@ def read_broker_flow(
     end_date: str | date | None = None,
 ) -> pd.DataFrame:
     """Read broker flow with optional ticker and date-range filtering."""
-    init_db()
     clauses = []
     params: dict[str, object] = {}
     if tickers:
@@ -336,7 +334,6 @@ def read_broker_activity(
     end_date: str | date | None = None,
 ) -> pd.DataFrame:
     """Read broker activity with optional ticker and date-range filtering."""
-    init_db()
     clauses = []
     params: dict[str, object] = {}
     if tickers:
@@ -356,7 +353,6 @@ def read_broker_activity(
 
 
 def read_runs() -> pd.DataFrame:
-    init_db()
     with engine.connect() as conn:
         return pd.read_sql(
             text("SELECT * FROM runs ORDER BY run_at DESC LIMIT 50"),
