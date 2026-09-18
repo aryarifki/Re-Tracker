@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { Icon } from "@iconify/react";
 
@@ -12,12 +12,35 @@ export default function SignalDashboard() {
     revalidateOnFocus: false
   });
 
-  // FILTERING FRONTEND: 
-  // Menyesuaikan dengan dynamic threshold BEAR market di Python Anda (37)
+  // STATE UNTUK LAYER TOGGLE
+  const [layers, setLayers] = useState({
+    technical: true,
+    smart_money: true,
+    sector: true,
+    fundamental: true,
+  });
+
+  const toggleLayer = (layer: keyof typeof layers) => {
+    setLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
+  };
+
+  // FILTERING FRONTEND DENGAN LAYER TOGGLE
   const validSignals = useMemo(() => {
     if (!data?.data) return [];
-    return data.data.filter((sig: any) => sig.composite_score >= 37);
-  }, [data]);
+    return data.data.filter((sig: any) => {
+      // 1. Base threshold BEAR market (37)
+      if (sig.composite_score < 37) return false;
+      
+      // 2. Layer Toggle Filters
+      // Jika layer aktif, saham harus memiliki skor minimal di layer tersebut
+      if (layers.technical && sig.scores?.technical < 50) return false;
+      if (layers.smart_money && sig.scores?.smart_money < 50) return false;
+      if (layers.sector && sig.scores?.sector < 50) return false;
+      if (layers.fundamental && sig.scores?.fundamental < 85) return false; // 85 berarti maksimal 1 penalty fundamental
+      
+      return true;
+    });
+  }, [data, layers]);
 
   if (isLoading && !data) return (
     <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] rounded-xl flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)] shadow-sm">
@@ -32,13 +55,21 @@ export default function SignalDashboard() {
     </div>
   );
 
+  // Data untuk Tombol Toggle
+  const layerButtons = [
+    { key: 'technical', label: 'Technical', icon: 'ph:chart-line-up-duotone' },
+    { key: 'smart_money', label: 'Smart Money', icon: 'ph:money-wavy-duotone' },
+    { key: 'sector', label: 'Sector', icon: 'ph:buildings-duotone' },
+    { key: 'fundamental', label: 'Fundamental', icon: 'ph:chart-pie-slice-duotone' },
+  ] as const;
+
   return (
     <div className="space-y-4 pb-12 animate-fade-in">
       
       {/* ====== CONTAINER TABEL (Fixed Height dengan Flexbox) ====== */}
       <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 sm:p-5 shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
         
-        {/* --- HEADER COMPACT "SCANNER RESULTS" YANG ANDA MINTA --- */}
+        {/* --- HEADER COMPACT "SCANNER RESULTS" --- */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 gap-4 flex-shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold text-[var(--md-sys-color-on-surface)] mr-2">Scanner Results</h3>
@@ -64,6 +95,30 @@ export default function SignalDashboard() {
             />
             <span>{isValidating ? "Syncing..." : "Refresh Matrix"}</span>
           </button>
+        </div>
+
+        {/* --- LAYER TOGGLE PILLS (UI BARU) --- */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 flex-shrink-0">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--md-sys-color-on-surface-variant)] mr-1 flex items-center gap-1">
+            <Icon icon="ph:funnel-duotone" width={14} /> Layers:
+          </span>
+          {layerButtons.map((btn) => {
+            const isActive = layers[btn.key];
+            return (
+              <button
+                key={btn.key}
+                onClick={() => toggleLayer(btn.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all active:scale-[0.98] shadow-sm ${
+                  isActive
+                    ? "bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] border-[var(--md-sys-color-primary)]"
+                    : "bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-[var(--md-sys-color-outline-variant)] hover:bg-[var(--md-sys-color-surface-container-highest)]"
+                }`}
+              >
+                <Icon icon={isActive ? btn.icon : "ph:eye-slash-duotone"} width="12" />
+                {btn.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* --- AREA TABEL (Scrollable H/V) --- */}
