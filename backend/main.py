@@ -24,6 +24,7 @@ from app.routers import bandarmology
 from idx_bandarmology.universe import refresh_master_tickers
 from routers import foreign_flow
 
+
 # Inisialisasi Redis Terpusat untuk Rate Limiting
 try:
     redis_client = redis.Redis(
