@@ -7,104 +7,176 @@ import { Icon } from "@iconify/react";
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function SignalDashboard() {
-  const { data, error, isLoading } = useSWR('/api/signal/daily?limit=5', fetcher, {
+  // Limit dinaikkan drastis agar seluruh sinyal yang lolos threshold tertampil di tabel
+  const { data, error, isLoading, isValidating, mutate } = useSWR('/api/signal/daily?limit=500', fetcher, {
     refreshInterval: 0,
     revalidateOnFocus: false
   });
 
-  if (isLoading) return (
-    <div className="py-24 flex flex-col items-center justify-center text-[var(--md-sys-color-primary)] animate-pulse gap-4">
-      <Icon icon="ph:cpu-bold" width="48" />
-      <span className="font-extrabold tracking-widest uppercase text-sm">Extracting AI Signals...</span>
+  if (isLoading && !data) return (
+    <div className="p-8 border border-[var(--md-sys-color-outline-variant)] bg-[var(--md-sys-color-surface-container)] rounded-xl flex items-center justify-center gap-3 text-[var(--md-sys-color-on-surface-variant)] shadow-sm">
+      <Icon icon="ph:spinner-gap-duotone" className="animate-spin text-[var(--md-sys-color-primary)]" width="20" /> 
+      <span className="text-sm font-medium">Extracting AI Signals...</span>
     </div>
   );
 
   if (error || !data?.data) return (
-    <div className="p-6 bg-[var(--md-sys-color-error-container)] border border-[var(--md-sys-color-error)] text-[var(--md-sys-color-on-error-container)] font-bold rounded-[24px] shadow-sm">
-      Gagal memuat sinyal harian. Pastikan backend SMtracker telah berjalan hari ini.
+    <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm rounded-xl">
+      Error loading AI Signals. Pastikan backend SMtracker telah berjalan dan endpoint API sudah aktif.
     </div>
   );
 
   const signals = data.data;
 
   return (
-    <div className="space-y-8 pb-24 animate-fade-in">
-      {signals.map((sig: any, idx: number) => {
-        // Tentukan warna tema berdasarkan label ML
-        const isWin = sig.ml_label === "WIN";
-        const themeColor = isWin ? "var(--color-positive)" : "#f59e0b";
-        const themeBg = isWin ? "bg-emerald-500/10 border-emerald-500/30" : "bg-amber-500/10 border-amber-500/30";
+    <div className="space-y-4 pb-12 animate-fade-in">
+      
+      {/* ====== CONTAINER TABEL (Fixed Height dengan Flexbox) ====== */}
+      <div className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl p-4 sm:p-5 shadow-sm flex flex-col h-[75vh] min-h-[600px] transition-colors duration-300">
         
-        const wp = sig.features?.wyckoff_phase || "Unknown";
-        const smNotes = sig.features?.smart_money_notes || "Netral";
-        
-        return (
-          <div key={idx} className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-[32px] p-5 md:p-7 shadow-sm transition-all duration-300 relative overflow-hidden group hover:shadow-md">
-            
-            {/* Header Emiten */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-[var(--md-sys-color-outline-variant)] pb-5">
-              <div>
-                <div className="text-[10px] font-extrabold text-[#f59e0b] uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                  <Icon icon="ph:robot-bold" /> AI SIGNAL DASHBOARD
-                </div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-3xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">{sig.ticker}</h2>
-                  <span className="text-[10px] font-extrabold bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface)] border border-[var(--md-sys-color-outline-variant)] rounded-full px-3 py-1 shadow-sm">
-                    Scanned: {sig.date}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                  <span className={`px-4 py-2 rounded-full border text-xs font-extrabold tracking-widest shadow-sm ${themeBg}`} style={{ color: themeColor }}>
-                    {sig.ml_label} PROB: {sig.ml_win_prob.toFixed(1)}%
-                  </span>
-              </div>
-            </div>
-
-            {/* Grid Metrik (Mirip Screenshot) */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4 mb-5">
-              
-              <div className="bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-4 flex flex-col justify-center border-l-4" style={{ borderLeftColor: themeColor }}>
-                <div className="text-[9px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-1">COMPOSITE SCORE</div>
-                <div className="text-2xl font-extrabold tracking-tight" style={{ color: themeColor }}>{sig.composite_score}<span className="text-sm font-bold opacity-60 ml-1">/100</span></div>
-                <div className="text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)] mt-1">Weighted ML Model</div>
-              </div>
-
-              <div className="bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-4 flex flex-col justify-center border-l-4 border-l-[#3b82f6]">
-                <div className="text-[9px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-1">TECHNICAL PHASE</div>
-                <div className="text-xl font-extrabold tracking-tight text-[#3b82f6] truncate">Phase {wp}</div>
-                <div className="text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)] mt-1">Wyckoff Market Cycle</div>
-              </div>
-
-              <div className="bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-4 flex flex-col justify-center border-l-4 border-l-[#10b981]">
-                <div className="text-[9px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-1">SMART MONEY</div>
-                <div className="text-xl font-extrabold tracking-tight text-[#10b981] truncate">{smNotes.split("·")[0].trim()}</div>
-                <div className="text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)] mt-1">Foreign & Broker Flow</div>
-              </div>
-
-              <div className="bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)] rounded-[20px] p-4 flex flex-col justify-center border-l-4 border-l-[#8b5cf6]">
-                <div className="text-[9px] font-extrabold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest mb-1">SECTOR MOMENTUM</div>
-                <div className="text-xl font-extrabold tracking-tight text-[#8b5cf6] truncate">{sig.features?.sector_notes?.split("(")[0].trim() || "Neutral"}</div>
-                <div className="text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)] mt-1">Index Rotation</div>
-              </div>
-
-            </div>
-
-            {/* Alert Box Bottom */}
-            <div className={`mt-2 rounded-[20px] p-4 border flex items-start gap-3 ${sig.scores.smart_money >= 65 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"}`}>
-              <div className="mt-0.5">
-                <Icon icon={sig.scores.smart_money >= 65 ? "ph:check-circle-bold" : "ph:warning-circle-bold"} width="18" />
-              </div>
-              <p className="text-[11px] sm:text-xs font-bold leading-relaxed">
-                {sig.scores.smart_money >= 65 
-                  ? "Signal is supported by strong accumulation and positive smart-money cumulative flow in the selected window. High probability setup." 
-                  : "Signal is technically valid but smart-money cumulative flow is weak or negative. Exercise caution with position sizing."}
-              </p>
+        {/* --- HEADER ALA DASHBOARD --- */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-[var(--md-sys-color-outline-variant)] pb-3 gap-4 flex-shrink-0">
+          <div>
+            <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-widest mb-1.5 flex items-center gap-2">
+              <Icon icon="ph:robot-bold" /> AI SIGNAL TERMINAL
             </div>
             
+            <div className="flex flex-wrap items-center gap-3 mb-1.5">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">Algorithmic Top Picks</h2>
+              <span className="text-[10px] font-semibold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border border-[var(--md-sys-color-outline-variant)] rounded-md px-2 py-1 flex items-center gap-1.5">
+                <Icon icon="ph:calendar-blank-duotone" /> {data.latest_date}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+              <span className="text-[var(--md-sys-color-on-surface-variant)] font-medium">Bursa Efek Indonesia</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-outline-variant)]" />
+              <span className="text-[var(--md-sys-color-primary)] font-bold">{data.count} Saham Terdeteksi</span>
+            </div>
           </div>
-        );
-      })}
+
+          <button 
+            onClick={() => mutate()}
+            disabled={isValidating}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-md text-xs font-semibold text-[var(--md-sys-color-on-surface)] transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            <Icon 
+              icon={isValidating ? "ph:spinner-gap-duotone" : "ph:arrows-clockwise-bold"} 
+              className={isValidating ? "animate-spin text-[var(--md-sys-color-on-surface-variant)]" : "text-[var(--md-sys-color-primary)]"} 
+              width="14" height="14" 
+            />
+            <span>{isValidating ? "Syncing..." : "Refresh Signals"}</span>
+          </button>
+        </div>
+
+        {/* --- AREA TABEL (Overflow Auto & Scrollbar) --- */}
+        <div className="overflow-auto scrollbar-thin scrollbar-thumb-[var(--md-sys-color-outline-variant)] pb-2 flex-grow relative z-0">
+          
+          {signals.length === 0 ? (
+            <div className="p-8 text-center text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
+              Belum ada sinyal yang memenuhi kriteria ketat algoritma pada tanggal ini.
+            </div>
+          ) : (
+            <table className="w-full text-left whitespace-nowrap text-xs border-separate border-spacing-0">
+              
+              <thead className="bg-[var(--md-sys-color-surface-container)]">
+                <tr className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)]">
+                  {/* TH Emiten: Sticky di Atas & Kiri (z-30 agar mengambang di atas segalanya) */}
+                  <th className="py-2.5 px-4 font-medium rounded-tl-md sticky top-0 left-0 z-30 bg-[var(--md-sys-color-surface-container-high)] border-b border-r border-[var(--md-sys-color-outline-variant)]">
+                    Emiten
+                  </th>
+                  <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                    AI Prob
+                  </th>
+                  <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                    Composite
+                  </th>
+                  <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                    Phase
+                  </th>
+                  <th className="py-2.5 px-4 font-medium sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                    Smart Money
+                  </th>
+                  <th className="py-2.5 px-4 font-medium rounded-tr-md sticky top-0 z-20 bg-[var(--md-sys-color-surface-container-high)] border-b border-[var(--md-sys-color-outline-variant)]">
+                    Sector & Context
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {signals.map((sig: any, idx: number) => {
+                  const isWin = sig.ml_label === "WIN";
+                  const isLoss = sig.ml_label === "LOSS";
+                  
+                  // Style Tema (Adaptasi dari RawTablesTab)
+                  let badgeTheme = "text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]";
+                  if (isWin) badgeTheme = "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+                  else if (isLoss) badgeTheme = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
+                  else badgeTheme = "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
+                  
+                  const alertBoxClass = sig.scores?.smart_money >= 65 
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
+
+                  const scoreColorClass = isWin ? "text-[var(--color-positive)]" : "text-amber-600 dark:text-amber-400";
+                  const smColorClass = sig.scores?.smart_money >= 65 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+
+                  const wp = sig.features?.wyckoff_phase || "Unknown";
+                  const smNotes = sig.features?.smart_money_notes?.split("·")[0].trim() || "Netral";
+                  const secNotes = sig.features?.sector_notes?.split("(")[0].trim() || "Neutral";
+                  
+                  return (
+                    <tr key={idx} className="hover:bg-[var(--md-sys-color-surface-container-highest)] transition-colors text-[var(--md-sys-color-on-surface)] group">
+                      
+                      {/* TD Emiten: Sticky Kiri (z-10) dengan background warna dasar agar teks di belakangnya tidak menembus */}
+                      <td className="py-2.5 px-4 font-mono font-bold text-[var(--md-sys-color-on-surface)] sticky left-0 z-10 bg-[var(--md-sys-color-surface-container)] group-hover:bg-[var(--md-sys-color-surface-container-highest)] border-b border-r border-[var(--md-sys-color-outline-variant)]/30 transition-colors">
+                        {sig.ticker}
+                      </td>
+                      
+                      <td className="py-2.5 px-4 font-semibold uppercase tracking-wider text-[10px] border-b border-[var(--md-sys-color-outline-variant)]/30">
+                        <span className={`px-2 py-[1.5px] rounded border ${badgeTheme}`}>
+                          {sig.ml_label} {(sig.ml_win_prob).toFixed(1)}%
+                        </span>
+                      </td>
+                      
+                      <td className="py-2.5 px-4 font-bold border-b border-[var(--md-sys-color-outline-variant)]/30">
+                        <span className={scoreColorClass}>{sig.composite_score}</span>
+                        <span className="text-[10px] opacity-60 ml-0.5 text-[var(--md-sys-color-on-surface-variant)]">/100</span>
+                      </td>
+                      
+                      <td className="py-2.5 px-4 font-bold text-blue-500 dark:text-blue-400 border-b border-[var(--md-sys-color-outline-variant)]/30">
+                        Phase {wp}
+                      </td>
+                      
+                      <td className={`py-2.5 px-4 font-bold max-w-[200px] truncate border-b border-[var(--md-sys-color-outline-variant)]/30 ${smColorClass}`} title={smNotes}>
+                        {smNotes}
+                      </td>
+                      
+                      <td className="py-2.5 px-4 min-w-[300px] max-w-[400px] border-b border-[var(--md-sys-color-outline-variant)]/30">
+                        <div className="flex flex-col gap-1.5 py-1">
+                          <span className="font-bold text-indigo-500 dark:text-indigo-400 truncate" title={secNotes}>
+                            {secNotes}
+                          </span>
+                          
+                          <div className={`rounded p-1.5 border flex items-start gap-1.5 shadow-sm ${alertBoxClass}`}>
+                            <Icon icon={sig.scores?.smart_money >= 65 ? "ph:check-circle-bold" : "ph:warning-circle-bold"} width="12" className="shrink-0 mt-0.5" />
+                            <span className="text-[9.5px] font-medium leading-relaxed whitespace-normal break-words">
+                              {sig.scores?.smart_money >= 65 
+                                ? "Sinyal didukung akumulasi kuat. WIN rate tinggi." 
+                                : "Valid teknikal, tapi smart-money netral/distribusi. Hati-hati."}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
