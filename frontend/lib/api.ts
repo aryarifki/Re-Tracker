@@ -49,9 +49,9 @@ export async function fetchWithCache<T>(
 
 export const fetchBrokerLatest = async (ticker: string) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/bandar/latest/${ticker}`);
+    const res = await fetch(`${API_BASE_URL}/api/broker-flow/${ticker.toUpperCase()}/latest`);
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch (e) {
     console.error("Gagal fetch broker latest:", e);
     return null;
@@ -60,9 +60,9 @@ export const fetchBrokerLatest = async (ticker: string) => {
 
 export const fetchBrokerSummary = async (ticker: string, days: number) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/bandar/summary/${ticker}?days=${days}`);
+    const res = await fetch(`${API_BASE_URL}/api/broker-flow/${ticker.toUpperCase()}/summary?days=${days}`);
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch (e) {
     console.error("Gagal fetch broker summary:", e);
     return null;
@@ -71,9 +71,9 @@ export const fetchBrokerSummary = async (ticker: string, days: number) => {
 
 export const fetchStockHistory = async (ticker: string, limit: number) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/stocks/history/${ticker}?limit=${limit}`);
+    const res = await fetch(`${API_BASE_URL}/api/stocks/${ticker.toUpperCase()}/history?limit=${limit}`);
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch (e) {
     console.error("Gagal fetch stock history:", e);
     return null;
@@ -82,9 +82,9 @@ export const fetchStockHistory = async (ticker: string, limit: number) => {
 
 export const fetchBrokerHistory = async (ticker: string, days: number) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/bandar/history/${ticker}?days=${days}`);
+    const res = await fetch(`${API_BASE_URL}/api/broker-flow/${ticker.toUpperCase()}/history?limit=${days}`);
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch (e) {
     console.error("Gagal fetch broker history:", e);
     return null;
